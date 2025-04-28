@@ -1,0 +1,21 @@
+[package]
+name = "near-substreams-sql-sink"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+substreams = "0.6.1"
+prost = "0.13.5"
+prost-types = "0.13.5"
+substreams-database-change = "2.0.0"
+anyhow = "1"
+hex = "0.4.3"
+chrono = { version = "0.4", features = [ "std" ], default-features = false }
+
+[profile.release]
+lto = true
+opt-level = 's'
+strip = "debuginfo"

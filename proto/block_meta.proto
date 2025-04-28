@@ -1,0 +1,14 @@
+syntax = "proto3";
+package near.block_meta.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message BlockMeta {
+  uint64 height = 1;
+  string hash = 2;
+  string prev_hash = 3;
+  string author = 4;
+  string timestamp = 5;
+  string gas_price = 6;
+  string total_supply = 7;
+}
