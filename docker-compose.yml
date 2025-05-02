@@ -36,6 +36,6 @@ services:
     depends_on:
       - postgres
     environment:
-      ENDPOINT: near.substreams.pinax.network:443
-      DSN: psql://dev-node:insecure-change-me-in-prod@postgres:5432/dev-node?sslmode=disable
+      ENDPOINT: ${ENDPOINT}
+      DSN: ${DSN}
       SUBSTREAMS_API_KEY: ${SUBSTREAMS_API_KEY}
