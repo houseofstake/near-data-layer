@@ -2,8 +2,8 @@ mod pb;
 
 use substreams::store::{self, DeltaProto, StoreSetIfNotExistsProto, StoreNew, StoreSetIfNotExists};
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
-use pb::sf::near::r#type::v1::Block;
-use pb::near::block_meta::v1::{BlockMeta, ChunkMeta};
+use pb::sf::near::r#type::v1::{Block, receipt};
+use pb::near::block_meta::v1::{BlockMeta, ChunkMeta, ReceiptMeta};
 use substreams::pb::substreams::store_delta::Operation as DeltaOperation;
 use chrono::{DateTime, Utc};
 
@@ -75,14 +75,53 @@ fn store_chunk_meta(block: Block, s: StoreSetIfNotExistsProto<ChunkMeta>) {
     }
 }
 
+#[substreams::handlers::store]
+fn store_receipt_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptMeta>) {
+    if let Some(header) = block.header.as_ref() {
+        for shard in &block.shards {
+            for receipt_exec_outcome in &shard.receipt_execution_outcomes {
+                if let Some(receipt) = &receipt_exec_outcome.receipt {
+                    let receipt_meta = ReceiptMeta {
+                        height: header.height,
+                        block_hash: if let Some(h) = &header.hash { hex::encode(&h.bytes) } else { "".to_string() },
+                        chunk_hash: if let Some(chunk) = &shard.chunk {
+                            if let Some(header) = &chunk.header {
+                                hex::encode(&header.chunk_hash)
+                            } else {
+                                "".to_string()
+                            }
+                        } else {
+                            "".to_string()
+                        },
+                        receipt_id: if let Some(id) = &receipt.receipt_id { hex::encode(&id.bytes) } else { "".to_string() },
+                        predecessor_id: receipt.predecessor_id.clone(),
+                        receiver_id: receipt.receiver_id.clone(),
+                        receipt_kind: match &receipt.receipt {
+                            Some(receipt::Receipt::Action(_)) => "Action".to_string(),
+                            Some(receipt::Receipt::Data(_)) => "Data".to_string(),
+                            None => "Unknown".to_string(),
+                        },
+                        author: block.author.clone(),
+                    };
+
+                    let key = format!("{}-{}", header.height, if let Some(id) = &receipt.receipt_id { hex::encode(&id.bytes) } else { "".to_string() });
+                    s.set_if_not_exists(header.height, key, &receipt_meta);
+                }
+            }
+        }
+    }
+}
+
 #[substreams::handlers::map]
 fn db_out(block_meta_deltas: store::Deltas<DeltaProto<BlockMeta>>,
-          chunk_meta_deltas: store::Deltas<DeltaProto<ChunkMeta>>) 
+          chunk_meta_deltas: store::Deltas<DeltaProto<ChunkMeta>>,
+          receipt_meta_deltas: store::Deltas<DeltaProto<ReceiptMeta>>) 
     -> Result<DatabaseChanges, substreams::errors::Error> {
     let mut database_changes = DatabaseChanges::default();
     
     transform_block_meta_to_database_changes(&mut database_changes, block_meta_deltas);
     transform_chunk_meta_to_database_changes(&mut database_changes, chunk_meta_deltas);
+    transform_receipt_meta_to_database_changes(&mut database_changes, receipt_meta_deltas);
     
     Ok(database_changes)
 }
@@ -106,6 +145,18 @@ fn transform_chunk_meta_to_database_changes(
     for delta in deltas.deltas {
         match delta.operation {
             DeltaOperation::Create => push_create_chunk_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
+            _ => {}
+        }
+    }
+}
+
+fn transform_receipt_meta_to_database_changes(
+    changes: &mut DatabaseChanges,
+    deltas: store::Deltas<DeltaProto<ReceiptMeta>>,
+) {
+    for delta in deltas.deltas {
+        match delta.operation {
+            DeltaOperation::Create => push_create_receipt_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
             _ => {}
         }
     }
@@ -152,5 +203,23 @@ fn push_create_chunk_meta(
         .change("balance_burnt", (None, &value.balance_burnt))
         .change("outgoing_receipts_root", (None, &value.outgoing_receipts_root))
         .change("tx_root", (None, &value.tx_root))
+        .change("author", (None, &value.author));
+}
+
+fn push_create_receipt_meta(
+    changes: &mut DatabaseChanges,
+    key: &str,
+    ordinal: u64,
+    value: &ReceiptMeta,
+) {
+    changes
+        .push_change("receipt_meta", key, ordinal, Operation::Create)
+        .change("height", (None, value.height))
+        .change("block_hash", (None, &value.block_hash))
+        .change("chunk_hash", (None, &value.chunk_hash))
+        .change("receipt_id", (None, &value.receipt_id))
+        .change("predecessor_id", (None, &value.predecessor_id))
+        .change("receiver_id", (None, &value.receiver_id))
+        .change("receipt_kind", (None, &value.receipt_kind))
         .change("author", (None, &value.author));
 }

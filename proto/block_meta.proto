@@ -33,6 +33,17 @@ message ChunkMeta {
   string author = 17;
 }
 
+message ReceiptMeta {
+  uint64 height = 1;
+  string block_hash = 2;
+  string chunk_hash = 3;
+  string receipt_id = 4;
+  string predecessor_id = 5;
+  string receiver_id = 6;
+  string receipt_kind = 7;
+  string author = 8;
+}
+
 message TransactionMeta {
   uint64 height = 1;
   string hash = 2;

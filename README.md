@@ -1,6 +1,9 @@
 # NEAR Blockchain SQL Sink
 
-This project demonstrates how to use Substreams SQL sink to extract data from the NEAR blockchain and store it in a PostgreSQL database.
+A substreams-based indexer for the NEAR blockchain. Data is sunk into a PostgreSQL database.
+
+## The Data Model
+![](https://github.com/user-attachments/assets/244ae41f-f40f-45ef-8f5c-c385fe01860c)
 
 ## Prerequisites
 
@@ -48,6 +51,6 @@ If you want to run the project locally without Docker, you'll need to install:
 - Rust and Cargo: Install from [rustup.rs](https://rustup.rs)
 - `wasm32-unknown-unknown` target: `rustup target add wasm32-unknown-unknown`
 - `buf` for protobuf generation: Install from [buf.build](https://buf.build/docs/installation)
-- `substreams` CLI tool: Download from [GitHub releases](https://github.com/streamingfast/substreams/releases)
+- `substreams` CLI tool: Download with `brew install streamingfast/tap/substreams` or from [GitHub releases](https://github.com/streamingfast/substreams/releases)
 - `substreams-sink-sql` tool: Download from [GitHub releases](https://github.com/streamingfast/substreams-sink-sql/releases)
 - PostgreSQL server: Install from [postgresql.org](https://www.postgresql.org/download/)

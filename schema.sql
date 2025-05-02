@@ -36,3 +36,15 @@ CREATE TABLE IF NOT EXISTS chunk_meta (
     author TEXT NOT NULL,
     PRIMARY KEY (chunk_hash)
 ); 
+
+CREATE TABLE IF NOT EXISTS receipt_meta (
+    height BIGINT NOT NULL,
+    block_hash TEXT NOT NULL,
+    chunk_hash TEXT NOT NULL,
+    receipt_id TEXT NOT NULL,
+    predecessor_id TEXT NOT NULL,
+    receiver_id TEXT NOT NULL,
+    receipt_kind TEXT NOT NULL,
+    author TEXT NOT NULL,
+    PRIMARY KEY (receipt_id)
+);
