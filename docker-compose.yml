@@ -3,7 +3,5 @@ services:
     container_name: near-sink-sql
     platform: linux/amd64
     build: .
-    environment:
-      ENDPOINT: ${ENDPOINT}
-      DSN: ${DSN}
-      SUBSTREAMS_API_KEY: ${SUBSTREAMS_API_KEY}
+    # TEMPORARY:
+    # Environment variables now loaded from .env file inside the container

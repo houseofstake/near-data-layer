@@ -35,6 +35,18 @@ RUN wget "https://github.com/streamingfast/substreams-sink-sql/releases/download
     mv substreams-sink-sql /usr/local/bin/ && \
     rm "substreams-sink-sql_linux_x86_64.tar.gz"
 
+# Copy just the .env file first
+COPY .env /app/.env
+
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+# Load environment variables from .env file\n\
+export $(grep -v "^#" /app/.env | xargs)\n\
+\n\
+# Run the command\n\
+exec "$@"' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
 # Copy application files
 COPY . .
 
@@ -42,11 +54,14 @@ COPY . .
 RUN substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/" && \
     cargo build --target wasm32-unknown-unknown --release
 
+# Set the entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
+
 # Setup and run the sink
 CMD ["make", "setup_sink", "run_sink"]
 
 
-# Required environment variables (must be set at runtime)
+# Required environment variables (now loaded from .env file at runtime)
 # DSN - PostgreSQL connection string 
 # ENDPOINT - PINAX endpoint
 # SUBSTREAMS_API_KEY - PINAX API KEY 
