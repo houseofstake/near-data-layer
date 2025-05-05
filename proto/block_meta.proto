@@ -71,3 +71,24 @@ message TransactionActionMeta {
   string beneficiary_id = 10;
   string code = 11;
 }
+
+message ReceiptActionMeta {
+  string id = 17; // Unique ID as primary key (receipt_id + action_index)
+  uint64 height = 1;
+  string receipt_id = 2;
+  string signer_account_id = 3;
+  string signer_public_key = 4;
+  string gas_price = 5;
+  string action_kind = 6;
+  string predecessor_id = 7;
+  string receiver_id = 8;
+  string block_hash = 9;
+  string chunk_hash = 10;
+  string author = 11;
+  // Additional fields for specific action types
+  string method_name = 12;
+  uint64 gas = 13;
+  string deposit = 14;
+  string args_base64 = 15; // Base64 encoded args for FunctionCall
+  uint32 action_index = 16; // Index of this action within the receipt
+}

@@ -15,7 +15,7 @@ setup_sink:
 	substreams-sink-sql setup $(DSN) ./sink/substreams.dev.yaml
 
 run_sink:
-	substreams-sink-sql run $(DSN) sink/substreams.dev.yaml -e $(ENDPOINT)
+	RUST_LOG=debug substreams-sink-sql run $(DSN) sink/substreams.dev.yaml --endpoint $(ENDPOINT)
 
 clean:
-	cargo clean 
+	cargo clean

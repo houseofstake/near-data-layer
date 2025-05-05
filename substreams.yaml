@@ -21,6 +21,7 @@ binaries:
 modules:
   - name: store_block_meta
     kind: store
+    initialBlock: 195171683
     updatePolicy: set_if_not_exists
     valueType: proto:near.block_meta.v1.BlockMeta
     inputs:
@@ -28,6 +29,7 @@ modules:
 
   - name: store_chunk_meta
     kind: store
+    initialBlock: 195171683
     updatePolicy: set_if_not_exists
     valueType: proto:near.block_meta.v1.ChunkMeta
     inputs:
@@ -35,13 +37,23 @@ modules:
 
   - name: store_receipt_meta
     kind: store
+    initialBlock: 195171683
     updatePolicy: set_if_not_exists
     valueType: proto:near.block_meta.v1.ReceiptMeta
     inputs:
       - source: sf.near.type.v1.Block
 
+  - name: store_receipt_action_meta
+    kind: store
+    initialBlock: 195171683
+    updatePolicy: set_if_not_exists
+    valueType: proto:near.block_meta.v1.ReceiptActionMeta
+    inputs:
+      - source: sf.near.type.v1.Block
+
   - name: db_out
     kind: map
+    initialBlock: 195171683
     inputs:
       - store: store_block_meta
         mode: deltas
@@ -49,10 +61,12 @@ modules:
         mode: deltas
       - store: store_receipt_meta
         mode: deltas
+      - store: store_receipt_action_meta
+        mode: deltas
     output:
       type: proto:sf.substreams.sink.database.v1.DatabaseChanges
 
-network: mainnet
+network: testnet
 
 sink:
   module: db_out

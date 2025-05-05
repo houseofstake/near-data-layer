@@ -3,7 +3,7 @@ mod pb;
 use substreams::store::{self, DeltaProto, StoreSetIfNotExistsProto, StoreNew, StoreSetIfNotExists};
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use pb::sf::near::r#type::v1::{Block, receipt};
-use pb::near::block_meta::v1::{BlockMeta, ChunkMeta, ReceiptMeta};
+use pb::near::block_meta::v1::{BlockMeta, ChunkMeta, ReceiptMeta, ReceiptActionMeta};
 use substreams::pb::substreams::store_delta::Operation as DeltaOperation;
 use chrono::{DateTime, Utc};
 
@@ -112,16 +112,145 @@ fn store_receipt_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptMeta>) {
     }
 }
 
+#[substreams::handlers::store]
+fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptActionMeta>) {
+    if let Some(header) = block.header.as_ref() {
+        for shard in &block.shards {
+            for receipt_exec_outcome in &shard.receipt_execution_outcomes {
+                if let Some(receipt) = &receipt_exec_outcome.receipt {
+                    let receipt_id = if let Some(id) = &receipt.receipt_id { hex::encode(&id.bytes) } else { "".to_string() };
+                    
+                    // Only process action receipts
+                    if let Some(receipt::Receipt::Action(action_receipt)) = &receipt.receipt {
+                        let signer_account_id = action_receipt.signer_id.clone();
+                        let signer_public_key = if let Some(pk) = &action_receipt.signer_public_key {
+                            format!("{:?}:{}", pk.r#type, hex::encode(&pk.bytes))
+                        } else {
+                            "".to_string()
+                        };
+                        
+                        let gas_price = if let Some(gp) = &action_receipt.gas_price {
+                            bytes_to_string(&gp.bytes)
+                        } else {
+                            "0".to_string()
+                        };
+                        
+                        // Process each action in the receipt
+                        for (action_index, action) in action_receipt.actions.iter().enumerate() {
+                            let action_kind;
+                            let mut method_name = "".to_string();
+                            let mut gas = 0u64;
+                            let mut deposit = "0".to_string();
+                            let mut args_base64 = "".to_string();
+                            
+                            // Determine action type and extract relevant fields
+                            match &action.action {
+                                Some(pb::sf::near::r#type::v1::action::Action::CreateAccount(_)) => {
+                                    action_kind = "CreateAccount".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::DeployContract(_)) => {
+                                    action_kind = "DeployContract".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::FunctionCall(func_call)) => {
+                                    action_kind = "FunctionCall".to_string();
+                                    method_name = func_call.method_name.clone();
+                                    gas = func_call.gas;
+                                    if let Some(dep) = &func_call.deposit {
+                                        deposit = bytes_to_string(&dep.bytes);
+                                    }
+                                    args_base64 = base64::encode(&func_call.args);
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::Transfer(transfer)) => {
+                                    action_kind = "Transfer".to_string();
+                                    if let Some(dep) = &transfer.deposit {
+                                        deposit = bytes_to_string(&dep.bytes);
+                                    }
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::Stake(_)) => {
+                                    action_kind = "Stake".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::AddKey(_)) => {
+                                    action_kind = "AddKey".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::DeleteKey(_)) => {
+                                    action_kind = "DeleteKey".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::DeleteAccount(_)) => {
+                                    action_kind = "DeleteAccount".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::Delegate(_)) => {
+                                    action_kind = "Delegate".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::DeployGlobalContract(_)) => {
+                                    action_kind = "DeployGlobalContract".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::DeployGlobalContractByAccountId(_)) => {
+                                    action_kind = "DeployGlobalContractByAccountId".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::UseGlobalContract(_)) => {
+                                    action_kind = "UseGlobalContract".to_string();
+                                }
+                                Some(pb::sf::near::r#type::v1::action::Action::UseGlobalContractByAccountId(_)) => {
+                                    action_kind = "UseGlobalContractByAccountId".to_string();
+                                }
+                                None => {
+                                    action_kind = "Unknown".to_string();
+                                }
+                            }
+                            
+                            // Create a unique ID by combining receipt_id and action_index
+                            let unique_id = format!("{}-{}", receipt_id, action_index);
+                            
+                            let receipt_action_meta = ReceiptActionMeta {
+                                id: unique_id.clone(), // Set the new primary key field
+                                height: header.height,
+                                receipt_id: receipt_id.clone(),
+                                signer_account_id: signer_account_id.clone(),
+                                signer_public_key: signer_public_key.clone(),
+                                gas_price: gas_price.clone(),
+                                action_kind,
+                                predecessor_id: receipt.predecessor_id.clone(),
+                                receiver_id: receipt.receiver_id.clone(),
+                                block_hash: if let Some(h) = &header.hash { hex::encode(&h.bytes) } else { "".to_string() },
+                                chunk_hash: if let Some(chunk) = &shard.chunk {
+                                    if let Some(header) = &chunk.header {
+                                        hex::encode(&header.chunk_hash)
+                                    } else {
+                                        "".to_string()
+                                    }
+                                } else {
+                                    "".to_string()
+                                },
+                                author: block.author.clone(),
+                                method_name,
+                                gas,
+                                deposit,
+                                args_base64,
+                                action_index: action_index as u32,
+                            };
+                            
+                            // Use the unique ID as the key for the store
+                            s.set_if_not_exists(header.height, unique_id, &receipt_action_meta);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[substreams::handlers::map]
 fn db_out(block_meta_deltas: store::Deltas<DeltaProto<BlockMeta>>,
           chunk_meta_deltas: store::Deltas<DeltaProto<ChunkMeta>>,
-          receipt_meta_deltas: store::Deltas<DeltaProto<ReceiptMeta>>) 
+          receipt_meta_deltas: store::Deltas<DeltaProto<ReceiptMeta>>,
+          receipt_action_meta_deltas: store::Deltas<DeltaProto<ReceiptActionMeta>>)
     -> Result<DatabaseChanges, substreams::errors::Error> {
     let mut database_changes = DatabaseChanges::default();
     
     transform_block_meta_to_database_changes(&mut database_changes, block_meta_deltas);
     transform_chunk_meta_to_database_changes(&mut database_changes, chunk_meta_deltas);
     transform_receipt_meta_to_database_changes(&mut database_changes, receipt_meta_deltas);
+    transform_receipt_action_meta_to_database_changes(&mut database_changes, receipt_action_meta_deltas);
     
     Ok(database_changes)
 }
@@ -157,6 +286,18 @@ fn transform_receipt_meta_to_database_changes(
     for delta in deltas.deltas {
         match delta.operation {
             DeltaOperation::Create => push_create_receipt_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
+            _ => {}
+        }
+    }
+}
+
+fn transform_receipt_action_meta_to_database_changes(
+    changes: &mut DatabaseChanges,
+    deltas: store::Deltas<DeltaProto<ReceiptActionMeta>>,
+) {
+    for delta in deltas.deltas {
+        match delta.operation {
+            DeltaOperation::Create => push_create_receipt_action_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
             _ => {}
         }
     }
@@ -222,4 +363,31 @@ fn push_create_receipt_meta(
         .change("receiver_id", (None, &value.receiver_id))
         .change("receipt_kind", (None, &value.receipt_kind))
         .change("author", (None, &value.author));
+}
+
+fn push_create_receipt_action_meta(
+    changes: &mut DatabaseChanges,
+    key: &str,
+    ordinal: u64,
+    value: &ReceiptActionMeta,
+) {
+    changes
+        .push_change("receipt_action_meta", key, ordinal, Operation::Create)
+        .change("id", (None, &value.id))
+        .change("height", (None, value.height))
+        .change("receipt_id", (None, &value.receipt_id))
+        .change("signer_account_id", (None, &value.signer_account_id))
+        .change("signer_public_key", (None, &value.signer_public_key))
+        .change("gas_price", (None, &value.gas_price))
+        .change("action_kind", (None, &value.action_kind))
+        .change("predecessor_id", (None, &value.predecessor_id))
+        .change("receiver_id", (None, &value.receiver_id))
+        .change("block_hash", (None, &value.block_hash))
+        .change("chunk_hash", (None, &value.chunk_hash))
+        .change("author", (None, &value.author))
+        .change("method_name", (None, &value.method_name))
+        .change("gas", (None, value.gas))
+        .change("deposit", (None, &value.deposit))
+        .change("args_base64", (None, &value.args_base64))
+        .change("action_index", (None, value.action_index));
 }
