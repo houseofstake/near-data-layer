@@ -18,6 +18,8 @@ A substreams-based indexer for the NEAR blockchain. Data is sunk into a PostgreS
    SUBSTREAMS_API_KEY=your_api_key_here
    ```
 
+   This `.env` file will be automatically copied into the Docker container during the build process and the environment variables will be loaded at container startup.
+
 2. Start the services:
    ```bash
    docker-compose up --build
@@ -26,13 +28,13 @@ A substreams-based indexer for the NEAR blockchain. Data is sunk into a PostgreS
    This will:
    - Start a PostgreSQL database
    - Start pgweb (PostgreSQL web interface) at http://localhost:8081
-   - Build and run the NEAR sink container
+   - Build and run the NEAR sink container with environment variables from the `.env` file
 
 ## Configuration
 
 ### Environment Variables
 
-The following environment variables are required:
+The following environment variables are required in your `.env` file:
 
 - `DSN`: PostgreSQL connection string
   - Format: `postgres://username:password@host:port/database?sslmode=disable`
