@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS receipt_meta (
 
 CREATE TABLE IF NOT EXISTS receipt_action_meta (
     id TEXT PRIMARY KEY,
-    height BIGINT NOT NULL,
+    block_height BIGINT NOT NULL,
     receipt_id TEXT NOT NULL,
     signer_account_id TEXT NOT NULL,
     signer_public_key TEXT NOT NULL,
@@ -66,5 +66,6 @@ CREATE TABLE IF NOT EXISTS receipt_action_meta (
     gas BIGINT NOT NULL,
     deposit TEXT NOT NULL,
     args_base64 TEXT NOT NULL,
-    action_index INTEGER NOT NULL
+    action_index INTEGER NOT NULL,
+    block_timestamp TIMESTAMP NOT NULL
 );
