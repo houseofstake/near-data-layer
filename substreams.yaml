@@ -5,7 +5,7 @@ package:
 
 protobuf:
   files:
-    - block_meta.proto
+    - entities.proto
   importPaths:
     - ./proto
 
@@ -19,49 +19,49 @@ binaries:
     file: target/wasm32-unknown-unknown/release/near_substreams_sql_sink.wasm
 
 modules:
-  - name: store_block_meta
+  - name: store_block
     kind: store
-    initialBlock: 195171683
+    initialBlock: 194070330
     updatePolicy: set_if_not_exists
-    valueType: proto:near.block_meta.v1.BlockMeta
+    valueType: proto:near.entities.v1.Block
     inputs:
       - source: sf.near.type.v1.Block
 
-  - name: store_chunk_meta
+  - name: store_chunk
     kind: store
-    initialBlock: 195171683
+    initialBlock: 194070330
     updatePolicy: set_if_not_exists
-    valueType: proto:near.block_meta.v1.ChunkMeta
+    valueType: proto:near.entities.v1.Chunk
     inputs:
       - source: sf.near.type.v1.Block
 
-  - name: store_receipt_meta
+  - name: store_receipt
     kind: store
-    initialBlock: 195171683
+    initialBlock: 194070330
     updatePolicy: set_if_not_exists
-    valueType: proto:near.block_meta.v1.ReceiptMeta
+    valueType: proto:near.entities.v1.Receipt
     inputs:
       - source: sf.near.type.v1.Block
 
-  - name: store_receipt_action_meta
+  - name: store_receipt_action
     kind: store
-    initialBlock: 195171683
+    initialBlock: 194070330
     updatePolicy: set_if_not_exists
-    valueType: proto:near.block_meta.v1.ReceiptActionMeta
+    valueType: proto:near.entities.v1.ReceiptAction
     inputs:
       - source: sf.near.type.v1.Block
 
   - name: db_out
     kind: map
-    initialBlock: 195171683
+    initialBlock: 194070330
     inputs:
-      - store: store_block_meta
+      - store: store_block
         mode: deltas
-      - store: store_chunk_meta
+      - store: store_chunk
         mode: deltas
-      - store: store_receipt_meta
+      - store: store_receipt
         mode: deltas
-      - store: store_receipt_action_meta
+      - store: store_receipt_action
         mode: deltas
     output:
       type: proto:sf.substreams.sink.database.v1.DatabaseChanges

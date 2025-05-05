@@ -3,7 +3,7 @@ mod pb;
 use substreams::store::{self, DeltaProto, StoreSetIfNotExistsProto, StoreNew, StoreSetIfNotExists};
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use pb::sf::near::r#type::v1::{Block, receipt};
-use pb::near::block_meta::v1::{BlockMeta, ChunkMeta, ReceiptMeta, ReceiptActionMeta};
+use pb::near::entities::v1::{Block as BlockEntity, Chunk, Receipt, ReceiptAction};
 use substreams::pb::substreams::store_delta::Operation as DeltaOperation;
 use chrono::{DateTime, Utc};
 
@@ -22,16 +22,15 @@ fn bytes_to_string(bytes: &[u8]) -> String {
 
 /// Process NEAR blocks and output database changes
 #[substreams::handlers::store]
-fn store_block_meta(block: Block, s: StoreSetIfNotExistsProto<BlockMeta>) {
+fn store_block(block: Block, s: StoreSetIfNotExistsProto<BlockEntity>) {
     if let Some(header) = block.header.as_ref() {
-        let seconds = header.timestamp as i64;
+        let seconds = (header.timestamp_nanosec / 1_000_000_000) as i64;
         let nanos = (header.timestamp_nanosec % 1_000_000_000) as u32;
 
         let datetime = DateTime::<Utc>::from_timestamp(seconds, nanos).unwrap();
-
         let timestamp = datetime.format("%Y-%m-%d %H:%M:%S.%f").to_string();
 
-        let block_meta = BlockMeta {
+        let block_entity = BlockEntity {
             height: header.height,
             hash: if let Some(h) = &header.hash { hex::encode(&h.bytes) } else { "".to_string() },
             prev_hash: if let Some(h) = &header.prev_hash { hex::encode(&h.bytes) } else { "".to_string() },
@@ -41,15 +40,15 @@ fn store_block_meta(block: Block, s: StoreSetIfNotExistsProto<BlockMeta>) {
             total_supply: if let Some(ts) = &header.total_supply { bytes_to_string(&ts.bytes) } else { "0".to_string() },
         };
         
-        s.set_if_not_exists(header.height, header.height.to_string(), &block_meta);
+        s.set_if_not_exists(header.height, header.height.to_string(), &block_entity);
     }
 }
 
 #[substreams::handlers::store]
-fn store_chunk_meta(block: Block, s: StoreSetIfNotExistsProto<ChunkMeta>) {
+fn store_chunk(block: Block, s: StoreSetIfNotExistsProto<Chunk>) {
     if let Some(header) = block.header.as_ref() {
         for chunk_header in &block.chunk_headers {
-            let chunk_meta = ChunkMeta {
+            let chunk = Chunk {
                 height: header.height,
                 chunk_hash: hex::encode(&chunk_header.chunk_hash),
                 prev_block_hash: hex::encode(&chunk_header.prev_block_hash),
@@ -70,18 +69,18 @@ fn store_chunk_meta(block: Block, s: StoreSetIfNotExistsProto<ChunkMeta>) {
             };
 
             let key = format!("{}-{}", header.height, hex::encode(&chunk_header.chunk_hash));
-            s.set_if_not_exists(header.height, key, &chunk_meta);
+            s.set_if_not_exists(header.height, key, &chunk);
         }
     }
 }
 
 #[substreams::handlers::store]
-fn store_receipt_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptMeta>) {
+fn store_receipt(block: Block, s: StoreSetIfNotExistsProto<Receipt>) {
     if let Some(header) = block.header.as_ref() {
         for shard in &block.shards {
             for receipt_exec_outcome in &shard.receipt_execution_outcomes {
                 if let Some(receipt) = &receipt_exec_outcome.receipt {
-                    let receipt_meta = ReceiptMeta {
+                    let receipt_entity = Receipt {
                         height: header.height,
                         block_hash: if let Some(h) = &header.hash { hex::encode(&h.bytes) } else { "".to_string() },
                         chunk_hash: if let Some(chunk) = &shard.chunk {
@@ -105,7 +104,7 @@ fn store_receipt_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptMeta>) {
                     };
 
                     let key = format!("{}-{}", header.height, if let Some(id) = &receipt.receipt_id { hex::encode(&id.bytes) } else { "".to_string() });
-                    s.set_if_not_exists(header.height, key, &receipt_meta);
+                    s.set_if_not_exists(header.height, key, &receipt_entity);
                 }
             }
         }
@@ -113,13 +112,12 @@ fn store_receipt_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptMeta>) {
 }
 
 #[substreams::handlers::store]
-fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptActionMeta>) {
+fn store_receipt_action(block: Block, s: StoreSetIfNotExistsProto<ReceiptAction>) {
     if let Some(header) = block.header.as_ref() {
-        let seconds = header.timestamp as i64;
+        let seconds = (header.timestamp_nanosec / 1_000_000_000) as i64;
         let nanos = (header.timestamp_nanosec % 1_000_000_000) as u32;
         
         let datetime = DateTime::<Utc>::from_timestamp(seconds, nanos).unwrap();
-        
         let timestamp = datetime.format("%Y-%m-%d %H:%M:%S.%f").to_string();
         
         for shard in &block.shards {
@@ -208,7 +206,7 @@ fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptAc
                             // Create a unique ID by combining receipt_id and action_index
                             let unique_id = format!("{}-{}", receipt_id, action_index);
                             
-                            let receipt_action_meta = ReceiptActionMeta {
+                            let receipt_action = ReceiptAction {
                                 id: unique_id.clone(), // Set the new primary key field
                                 block_height: header.height,
                                 receipt_id: receipt_id.clone(),
@@ -238,7 +236,7 @@ fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptAc
                             };
                             
                             // Use the unique ID as the key for the store
-                            s.set_if_not_exists(header.height, unique_id, &receipt_action_meta);
+                            s.set_if_not_exists(header.height, unique_id, &receipt_action);
                         }
                     }
                 }
@@ -248,77 +246,86 @@ fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptAc
 }
 
 #[substreams::handlers::map]
-fn db_out(block_meta_deltas: store::Deltas<DeltaProto<BlockMeta>>,
-          chunk_meta_deltas: store::Deltas<DeltaProto<ChunkMeta>>,
-          receipt_meta_deltas: store::Deltas<DeltaProto<ReceiptMeta>>,
-          receipt_action_meta_deltas: store::Deltas<DeltaProto<ReceiptActionMeta>>)
-    -> Result<DatabaseChanges, substreams::errors::Error> {
-    let mut database_changes = DatabaseChanges::default();
-    
-    transform_block_meta_to_database_changes(&mut database_changes, block_meta_deltas);
-    transform_chunk_meta_to_database_changes(&mut database_changes, chunk_meta_deltas);
-    transform_receipt_meta_to_database_changes(&mut database_changes, receipt_meta_deltas);
-    transform_receipt_action_meta_to_database_changes(&mut database_changes, receipt_action_meta_deltas);
-    
+fn db_out(
+    block_deltas: store::Deltas<DeltaProto<BlockEntity>>,
+    chunk_deltas: store::Deltas<DeltaProto<Chunk>>,
+    receipt_deltas: store::Deltas<DeltaProto<Receipt>>,
+    receipt_action_deltas: store::Deltas<DeltaProto<ReceiptAction>>)
+-> Result<DatabaseChanges, substreams::errors::Error> {
+    let mut database_changes: DatabaseChanges = Default::default();
+
+    transform_block_to_database_changes(&mut database_changes, block_deltas);
+    transform_chunk_to_database_changes(&mut database_changes, chunk_deltas);
+    transform_receipt_to_database_changes(&mut database_changes, receipt_deltas);
+    transform_receipt_action_to_database_changes(&mut database_changes, receipt_action_deltas);
+
     Ok(database_changes)
 }
 
-fn transform_block_meta_to_database_changes(
+fn transform_block_to_database_changes(
     changes: &mut DatabaseChanges,
-    deltas: store::Deltas<DeltaProto<BlockMeta>>,
+    deltas: store::Deltas<DeltaProto<BlockEntity>>,
 ) {
     for delta in deltas.deltas {
         match delta.operation {
-            DeltaOperation::Create => push_create_block_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
+            DeltaOperation::Create => {
+                push_create_block(changes, &delta.key, delta.ordinal, &delta.new_value)
+            }
             _ => {}
         }
     }
 }
 
-fn transform_chunk_meta_to_database_changes(
+fn transform_chunk_to_database_changes(
     changes: &mut DatabaseChanges,
-    deltas: store::Deltas<DeltaProto<ChunkMeta>>,
+    deltas: store::Deltas<DeltaProto<Chunk>>,
 ) {
     for delta in deltas.deltas {
         match delta.operation {
-            DeltaOperation::Create => push_create_chunk_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
+            DeltaOperation::Create => {
+                push_create_chunk(changes, &delta.key, delta.ordinal, &delta.new_value)
+            }
             _ => {}
         }
     }
 }
 
-fn transform_receipt_meta_to_database_changes(
+fn transform_receipt_to_database_changes(
     changes: &mut DatabaseChanges,
-    deltas: store::Deltas<DeltaProto<ReceiptMeta>>,
+    deltas: store::Deltas<DeltaProto<Receipt>>,
 ) {
     for delta in deltas.deltas {
         match delta.operation {
-            DeltaOperation::Create => push_create_receipt_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
+            DeltaOperation::Create => {
+                push_create_receipt(changes, &delta.key, delta.ordinal, &delta.new_value)
+            }
             _ => {}
         }
     }
 }
 
-fn transform_receipt_action_meta_to_database_changes(
+fn transform_receipt_action_to_database_changes(
     changes: &mut DatabaseChanges,
-    deltas: store::Deltas<DeltaProto<ReceiptActionMeta>>,
+    deltas: store::Deltas<DeltaProto<ReceiptAction>>,
 ) {
     for delta in deltas.deltas {
         match delta.operation {
-            DeltaOperation::Create => push_create_receipt_action_meta(changes, &delta.key, delta.ordinal, &delta.new_value),
+            DeltaOperation::Create => {
+                push_create_receipt_action(changes, &delta.key, delta.ordinal, &delta.new_value)
+            }
             _ => {}
         }
     }
 }
 
-fn push_create_block_meta(
+fn push_create_block(
     changes: &mut DatabaseChanges,
     key: &str,
     ordinal: u64,
-    value: &BlockMeta,
+    value: &BlockEntity,
 ) {
     changes
-        .push_change("block_meta", key, ordinal, Operation::Create)
+        .push_change("blocks", key, ordinal, Operation::Create)
         .change("height", (None, value.height))
         .change("hash", (None, &value.hash))
         .change("prev_hash", (None, &value.prev_hash))
@@ -328,14 +335,14 @@ fn push_create_block_meta(
         .change("total_supply", (None, &value.total_supply));
 }
 
-fn push_create_chunk_meta(
+fn push_create_chunk(
     changes: &mut DatabaseChanges,
     key: &str,
     ordinal: u64,
-    value: &ChunkMeta,
+    value: &Chunk,
 ) {
     changes
-        .push_change("chunk_meta", key, ordinal, Operation::Create)
+        .push_change("chunks", key, ordinal, Operation::Create)
         .change("height", (None, value.height))
         .change("chunk_hash", (None, &value.chunk_hash))
         .change("prev_block_hash", (None, &value.prev_block_hash))
@@ -355,14 +362,14 @@ fn push_create_chunk_meta(
         .change("author", (None, &value.author));
 }
 
-fn push_create_receipt_meta(
+fn push_create_receipt(
     changes: &mut DatabaseChanges,
     key: &str,
     ordinal: u64,
-    value: &ReceiptMeta,
+    value: &Receipt,
 ) {
     changes
-        .push_change("receipt_meta", key, ordinal, Operation::Create)
+        .push_change("receipts", key, ordinal, Operation::Create)
         .change("height", (None, value.height))
         .change("block_hash", (None, &value.block_hash))
         .change("chunk_hash", (None, &value.chunk_hash))
@@ -373,14 +380,14 @@ fn push_create_receipt_meta(
         .change("author", (None, &value.author));
 }
 
-fn push_create_receipt_action_meta(
+fn push_create_receipt_action(
     changes: &mut DatabaseChanges,
     key: &str,
     ordinal: u64,
-    value: &ReceiptActionMeta,
+    value: &ReceiptAction,
 ) {
     changes
-        .push_change("receipt_action_meta", key, ordinal, Operation::Create)
+        .push_change("receipt_actions", key, ordinal, Operation::Create)
         .change("id", (None, &value.id))
         .change("block_height", (None, value.block_height))
         .change("receipt_id", (None, &value.receipt_id))

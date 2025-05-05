@@ -11,7 +11,7 @@ env:
   SERVICE_ACCOUNT_EMAIL: "github-actions@agora-near.iam.gserviceaccount.com"
   PROJECT_ID: "agora-near"
   REGION: "us-west1"
-  DOCKER_IMAGE: "us-west1-docker.pkg.dev/agora-near/indexer/indexer"
+  DOCKER_IMAGE: "us-west1-docker.pkg.dev/agora-near/indexer/near-sink-service"
 
 jobs:
   deploy-dev:
@@ -36,6 +36,18 @@ jobs:
 
       - name: Login to Artifact Registry
         run: gcloud auth configure-docker ${{env.REGION}}-docker.pkg.dev
+
+      - name: Generate .env from GCP Secret Manager
+        run: |
+          DB_USER=$(gcloud secrets versions access latest --secret=DATABASE_USER)
+          DB_PASS=$(gcloud secrets versions access latest --secret=DATABASE_PASSWORD)
+          PINAX_KEY=$(gcloud secrets versions access latest --secret=PINAX_API_KEY)
+
+          cat <<EOF > .env
+      DSN=postgres://${DB_USER}:${DB_PASS}@10.0.0.3:5432/postgres?sslmode=disable
+      ENDPOINT=neartest.substreams.pinax.network:443
+      SUBSTREAMS_API_KEY=${PINAX_KEY}
+      EOF
 
       - name: Build Docker image
         run: docker build -t ${{env.DOCKER_IMAGE}} .

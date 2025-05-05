@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS cursors
     block_id   text
 );
 
-CREATE TABLE IF NOT EXISTS block_meta (
+CREATE TABLE IF NOT EXISTS blocks (
     height BIGINT PRIMARY KEY,
     hash TEXT NOT NULL,
     prev_hash TEXT NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS block_meta (
     total_supply TEXT NOT NULL
 ); 
 
-CREATE TABLE IF NOT EXISTS chunk_meta (
+CREATE TABLE IF NOT EXISTS chunks (
     height BIGINT NOT NULL,
     chunk_hash TEXT NOT NULL,
     prev_block_hash TEXT NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS chunk_meta (
     PRIMARY KEY (chunk_hash)
 ); 
 
-CREATE TABLE IF NOT EXISTS receipt_meta (
+CREATE TABLE IF NOT EXISTS receipts (
     height BIGINT NOT NULL,
     block_hash TEXT NOT NULL,
     chunk_hash TEXT NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS receipt_meta (
     PRIMARY KEY (receipt_id)
 );
 
-CREATE TABLE IF NOT EXISTS receipt_action_meta (
+CREATE TABLE IF NOT EXISTS receipt_actions (
     id TEXT PRIMARY KEY,
     block_height BIGINT NOT NULL,
     receipt_id TEXT NOT NULL,
