@@ -24,13 +24,13 @@ fn bytes_to_string(bytes: &[u8]) -> String {
 #[substreams::handlers::store]
 fn store_block_meta(block: Block, s: StoreSetIfNotExistsProto<BlockMeta>) {
     if let Some(header) = block.header.as_ref() {
-        let seconds = (header.timestamp_nanosec / 1_000_000_000) as i64;
+        let seconds = header.timestamp as i64;
         let nanos = (header.timestamp_nanosec % 1_000_000_000) as u32;
-        
+
         let datetime = DateTime::<Utc>::from_timestamp(seconds, nanos).unwrap();
-        
+
         let timestamp = datetime.format("%Y-%m-%d %H:%M:%S.%f").to_string();
-        
+
         let block_meta = BlockMeta {
             height: header.height,
             hash: if let Some(h) = &header.hash { hex::encode(&h.bytes) } else { "".to_string() },
@@ -115,6 +115,13 @@ fn store_receipt_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptMeta>) {
 #[substreams::handlers::store]
 fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptActionMeta>) {
     if let Some(header) = block.header.as_ref() {
+        let seconds = header.timestamp as i64;
+        let nanos = (header.timestamp_nanosec % 1_000_000_000) as u32;
+        
+        let datetime = DateTime::<Utc>::from_timestamp(seconds, nanos).unwrap();
+        
+        let timestamp = datetime.format("%Y-%m-%d %H:%M:%S.%f").to_string();
+        
         for shard in &block.shards {
             for receipt_exec_outcome in &shard.receipt_execution_outcomes {
                 if let Some(receipt) = &receipt_exec_outcome.receipt {
@@ -203,7 +210,7 @@ fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptAc
                             
                             let receipt_action_meta = ReceiptActionMeta {
                                 id: unique_id.clone(), // Set the new primary key field
-                                height: header.height,
+                                block_height: header.height,
                                 receipt_id: receipt_id.clone(),
                                 signer_account_id: signer_account_id.clone(),
                                 signer_public_key: signer_public_key.clone(),
@@ -227,6 +234,7 @@ fn store_receipt_action_meta(block: Block, s: StoreSetIfNotExistsProto<ReceiptAc
                                 deposit,
                                 args_base64,
                                 action_index: action_index as u32,
+                                block_timestamp: timestamp.clone(),
                             };
                             
                             // Use the unique ID as the key for the store
@@ -374,7 +382,7 @@ fn push_create_receipt_action_meta(
     changes
         .push_change("receipt_action_meta", key, ordinal, Operation::Create)
         .change("id", (None, &value.id))
-        .change("height", (None, value.height))
+        .change("block_height", (None, value.block_height))
         .change("receipt_id", (None, &value.receipt_id))
         .change("signer_account_id", (None, &value.signer_account_id))
         .change("signer_public_key", (None, &value.signer_public_key))
@@ -389,5 +397,6 @@ fn push_create_receipt_action_meta(
         .change("gas", (None, value.gas))
         .change("deposit", (None, &value.deposit))
         .change("args_base64", (None, &value.args_base64))
-        .change("action_index", (None, value.action_index));
+        .change("action_index", (None, value.action_index))
+        .change("block_timestamp", (None, &value.block_timestamp));
 }

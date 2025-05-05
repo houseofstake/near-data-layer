@@ -74,7 +74,7 @@ message TransactionActionMeta {
 
 message ReceiptActionMeta {
   string id = 17; // Unique ID as primary key (receipt_id + action_index)
-  uint64 height = 1;
+  uint64 block_height = 1;
   string receipt_id = 2;
   string signer_account_id = 3;
   string signer_public_key = 4;
@@ -91,4 +91,5 @@ message ReceiptActionMeta {
   string deposit = 14;
   string args_base64 = 15; // Base64 encoded args for FunctionCall
   uint32 action_index = 16; // Index of this action within the receipt
+  string block_timestamp = 18; // Timestamp from the block header
 }
