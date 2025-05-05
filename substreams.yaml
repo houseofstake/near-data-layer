@@ -21,7 +21,7 @@ binaries:
 modules:
   - name: store_block_meta
     kind: store
-    initialBlock: 195192755
+    initialBlock: 195171683
     updatePolicy: set_if_not_exists
     valueType: proto:near.block_meta.v1.BlockMeta
     inputs:
@@ -29,7 +29,7 @@ modules:
 
   - name: store_chunk_meta
     kind: store
-    initialBlock: 195192755
+    initialBlock: 195171683
     updatePolicy: set_if_not_exists
     valueType: proto:near.block_meta.v1.ChunkMeta
     inputs:
@@ -37,7 +37,7 @@ modules:
 
   - name: store_receipt_meta
     kind: store
-    initialBlock: 195192755
+    initialBlock: 195171683
     updatePolicy: set_if_not_exists
     valueType: proto:near.block_meta.v1.ReceiptMeta
     inputs:
@@ -45,7 +45,7 @@ modules:
 
   - name: store_receipt_action_meta
     kind: store
-    initialBlock: 195192755
+    initialBlock: 195171683
     updatePolicy: set_if_not_exists
     valueType: proto:near.block_meta.v1.ReceiptActionMeta
     inputs:
@@ -53,7 +53,7 @@ modules:
 
   - name: db_out
     kind: map
-    initialBlock: 195192755
+    initialBlock: 195171683
     inputs:
       - store: store_block_meta
         mode: deltas
