@@ -1,0 +1,95 @@
+syntax = "proto3";
+package near.entities.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Block {
+  uint64 height = 1;
+  string hash = 2;
+  string prev_hash = 3;
+  string author = 4;
+  string timestamp = 5;
+  string gas_price = 6;
+  string total_supply = 7;
+}
+
+message Chunk {
+  uint64 height = 1;
+  string chunk_hash = 2;
+  string prev_block_hash = 3;
+  string outcome_root = 4;
+  string prev_state_root = 5;
+  string encoded_merkle_root = 6;
+  uint64 encoded_length = 7;
+  uint64 height_created = 8;
+  uint64 height_included = 9;
+  uint64 shard_id = 10;
+  uint64 gas_used = 11;
+  uint64 gas_limit = 12;
+  string validator_reward = 13;
+  string balance_burnt = 14;
+  string outgoing_receipts_root = 15;
+  string tx_root = 16;
+  string author = 17;
+}
+
+message Receipt {
+  uint64 height = 1;
+  string block_hash = 2;
+  string chunk_hash = 3;
+  string receipt_id = 4;
+  string predecessor_id = 5;
+  string receiver_id = 6;
+  string receipt_kind = 7;
+  string author = 8;
+}
+
+message Transaction {
+  uint64 height = 1;
+  string hash = 2;
+  string signer_id = 3;
+  string public_key = 4;
+  uint64 nonce = 5;
+  string receiver_id = 6;
+  string signature = 7;
+  uint64 gas_used = 8;
+  string tokens_burnt = 9;
+  string executor_id = 10;
+  string status = 11;
+}
+
+message TransactionAction {
+  uint64 height = 1;
+  string transaction_hash = 2;
+  string action_type = 3;
+  string method_name = 4;
+  string args = 5;
+  uint64 gas = 6;
+  string deposit = 7;
+  string stake = 8;
+  string public_key = 9;
+  string beneficiary_id = 10;
+  string code = 11;
+}
+
+message ReceiptAction {
+  string id = 17; // Unique ID as primary key (receipt_id + action_index)
+  uint64 block_height = 1;
+  string receipt_id = 2;
+  string signer_account_id = 3;
+  string signer_public_key = 4;
+  string gas_price = 5;
+  string action_kind = 6;
+  string predecessor_id = 7;
+  string receiver_id = 8;
+  string block_hash = 9;
+  string chunk_hash = 10;
+  string author = 11;
+  // Additional fields for specific action types
+  string method_name = 12;
+  uint64 gas = 13;
+  string deposit = 14;
+  string args_base64 = 15; // Base64 encoded args for FunctionCall
+  uint32 action_index = 16; // Index of this action within the receipt
+  string block_timestamp = 18; // Timestamp from the block header
+}
