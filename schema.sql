@@ -69,3 +69,18 @@ CREATE TABLE IF NOT EXISTS receipt_actions (
     action_index INTEGER NOT NULL,
     block_timestamp TIMESTAMP NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS execution_outcomes (
+    receipt_id TEXT PRIMARY KEY,
+    block_height BIGINT NOT NULL,
+    block_hash TEXT NOT NULL,
+    chunk_hash TEXT NOT NULL,
+    shard_id TEXT NOT NULL,
+    gas_burnt BIGINT NOT NULL,
+    gas_used FLOAT NOT NULL,
+    tokens_burnt FLOAT NOT NULL,
+    executor_account_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    outcome_receipt_ids TEXT[] NOT NULL,
+    executed_in_block_hash TEXT NOT NULL
+);

@@ -93,3 +93,18 @@ message ReceiptAction {
   uint32 action_index = 16; // Index of this action within the receipt
   string block_timestamp = 18; // Timestamp from the block header
 }
+
+message ExecutionOutcome {
+  uint64 block_height = 1;
+  string block_hash = 2;
+  string chunk_hash = 3;
+  string shard_id = 4;
+  uint64 gas_burnt = 5;
+  float gas_used = 6;
+  float tokens_burnt = 7;
+  string executor_account_id = 8;
+  string status = 9;
+  repeated string outcome_receipt_ids = 10; // Will be stored as TEXT[] in PostgreSQL
+  string receipt_id = 11;
+  string executed_in_block_hash = 12;
+}
