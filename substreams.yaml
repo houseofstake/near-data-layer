@@ -51,6 +51,14 @@ modules:
     inputs:
       - source: sf.near.type.v1.Block
 
+  - name: store_execution_outcome
+    kind: store
+    initialBlock: 194070330
+    updatePolicy: set_if_not_exists
+    valueType: proto:near.entities.v1.ExecutionOutcome
+    inputs:
+      - source: sf.near.type.v1.Block
+
   - name: db_out
     kind: map
     initialBlock: 194070330
@@ -62,6 +70,8 @@ modules:
       - store: store_receipt
         mode: deltas
       - store: store_receipt_action
+        mode: deltas
+      - store: store_execution_outcome
         mode: deltas
     output:
       type: proto:sf.substreams.sink.database.v1.DatabaseChanges

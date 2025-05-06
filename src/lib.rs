@@ -2,10 +2,11 @@ mod pb;
 
 use substreams::store::{self, DeltaProto, StoreSetIfNotExistsProto, StoreNew, StoreSetIfNotExists};
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
-use pb::sf::near::r#type::v1::{Block, receipt};
-use pb::near::entities::v1::{Block as BlockEntity, Chunk, Receipt, ReceiptAction};
+use pb::sf::near::r#type::v1::{Block, receipt, execution_outcome};
+use pb::near::entities::v1::{Block as BlockEntity, Chunk, Receipt, ReceiptAction, ExecutionOutcome};
 use substreams::pb::substreams::store_delta::Operation as DeltaOperation;
 use chrono::{DateTime, Utc};
+
 
 /// move to utils
 fn bytes_to_string(bytes: &[u8]) -> String {
@@ -245,12 +246,79 @@ fn store_receipt_action(block: Block, s: StoreSetIfNotExistsProto<ReceiptAction>
     }
 }
 
+#[substreams::handlers::store]
+fn store_execution_outcome(block: Block, s: StoreSetIfNotExistsProto<ExecutionOutcome>) {
+    if let Some(header) = block.header.as_ref() {
+        for shard in &block.shards {
+            for receipt_exec_outcome in &shard.receipt_execution_outcomes {
+                if let (Some(execution_outcome), Some(receipt)) = (&receipt_exec_outcome.execution_outcome, &receipt_exec_outcome.receipt) {
+                    let receipt_id = if let Some(id) = &receipt.receipt_id { hex::encode(&id.bytes) } else { "".to_string() };
+
+                    if let Some(outcome) = &execution_outcome.outcome {
+                        // Convert receipt_ids to Vec<String>
+                        let outcome_receipt_ids: Vec<String> = outcome.receipt_ids.iter()
+                            .map(|id| hex::encode(&id.bytes))
+                            .collect();
+
+                        // Determine execution outcome status
+                        let status = match &outcome.status {
+                            Some(execution_outcome::Status::Unknown(_)) => "Unknown".to_string(),
+                            Some(execution_outcome::Status::Failure(_)) => "Failure".to_string(),
+                            Some(execution_outcome::Status::SuccessValue(_)) => "SuccessValue".to_string(),
+                            Some(execution_outcome::Status::SuccessReceiptId(_)) => "SuccessReceiptId".to_string(),
+                            None => "Unknown".to_string(),
+                        };
+
+                        // Convert tokens_burnt from BigInt
+                        let tokens_burnt = if let Some(tb) = &outcome.tokens_burnt {
+                            bytes_to_string(&tb.bytes).parse::<f32>().unwrap_or(0.0)
+                        } else {
+                            0.0
+                        };
+
+                        let execution_outcome_entity = ExecutionOutcome {
+                            block_height: header.height,
+                            block_hash: if let Some(h) = &header.hash { hex::encode(&h.bytes) } else { "".to_string() },
+                            chunk_hash: if let Some(chunk) = &shard.chunk {
+                                if let Some(header) = &chunk.header {
+                                    hex::encode(&header.chunk_hash)
+                                } else {
+                                    "".to_string()
+                                }
+                            } else {
+                                "".to_string()
+                            },
+                            shard_id: shard.shard_id.to_string(),
+                            gas_burnt: outcome.gas_burnt,
+                            gas_used: outcome.gas_burnt as f32,
+                            tokens_burnt,
+                            executor_account_id: outcome.executor_id.clone(),
+                            status,
+                            outcome_receipt_ids,
+                            receipt_id: receipt_id.clone(),
+                            executed_in_block_hash: if let Some(block_hash) = &execution_outcome.block_hash {
+                                hex::encode(&block_hash.bytes) 
+                            } else {
+                                "".to_string()
+                            },
+                        };
+
+                        // Use receipt_id as the key for the store
+                        s.set_if_not_exists(header.height, receipt_id, &execution_outcome_entity);
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[substreams::handlers::map]
 fn db_out(
     block_deltas: store::Deltas<DeltaProto<BlockEntity>>,
     chunk_deltas: store::Deltas<DeltaProto<Chunk>>,
     receipt_deltas: store::Deltas<DeltaProto<Receipt>>,
-    receipt_action_deltas: store::Deltas<DeltaProto<ReceiptAction>>)
+    receipt_action_deltas: store::Deltas<DeltaProto<ReceiptAction>>,
+    execution_outcome_deltas: store::Deltas<DeltaProto<ExecutionOutcome>>)
 -> Result<DatabaseChanges, substreams::errors::Error> {
     let mut database_changes: DatabaseChanges = Default::default();
 
@@ -258,6 +326,7 @@ fn db_out(
     transform_chunk_to_database_changes(&mut database_changes, chunk_deltas);
     transform_receipt_to_database_changes(&mut database_changes, receipt_deltas);
     transform_receipt_action_to_database_changes(&mut database_changes, receipt_action_deltas);
+    transform_execution_outcome_to_database_changes(&mut database_changes, execution_outcome_deltas);
 
     Ok(database_changes)
 }
@@ -406,4 +475,55 @@ fn push_create_receipt_action(
         .change("args_base64", (None, &value.args_base64))
         .change("action_index", (None, value.action_index))
         .change("block_timestamp", (None, &value.block_timestamp));
+}
+
+fn transform_execution_outcome_to_database_changes(
+    changes: &mut DatabaseChanges,
+    deltas: store::Deltas<DeltaProto<ExecutionOutcome>>,
+) {
+    for delta in deltas.deltas {
+        match delta.operation {
+            DeltaOperation::Create => {
+                push_create_execution_outcome(changes, &delta.key, delta.ordinal, &delta.new_value)
+            }
+            _ => {}
+        }
+    }
+}
+
+fn push_create_execution_outcome(
+    changes: &mut DatabaseChanges,
+    key: &str,
+    ordinal: u64,
+    value: &ExecutionOutcome,
+) {
+    // Format the array field as a Postgres-style array literal: '{a,b,c}'
+    let array_literal = if !value.outcome_receipt_ids.is_empty() {
+        format!(
+            "'{{{}}}'",
+            value
+                .outcome_receipt_ids
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    } else {
+        "'{}'".to_string()
+    };
+
+    changes
+        .push_change("execution_outcomes", key, ordinal, Operation::Create)
+        .change("block_height", (None, value.block_height))
+        .change("block_hash", (None, &value.block_hash))
+        .change("chunk_hash", (None, &value.chunk_hash))
+        .change("shard_id", (None, &value.shard_id))
+        .change("gas_burnt", (None, value.gas_burnt))
+        .change("gas_used", (None, value.gas_used.to_string()))
+        .change("tokens_burnt", (None, &value.tokens_burnt.to_string()))
+        .change("executor_account_id", (None, &value.executor_account_id))
+        .change("status", (None, &value.status))
+        .change("receipt_id", (None, &value.receipt_id))
+        .change("executed_in_block_hash", (None, &value.executed_in_block_hash))
+        .change("outcome_receipt_ids", (None, array_literal));
 }
