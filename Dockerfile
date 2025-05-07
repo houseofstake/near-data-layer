@@ -52,7 +52,7 @@ RUN substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/
 # Make the copy env script executable
 RUN chmod +x /app/scripts/copy_env.sh
 
-# Set the entrypoint to our startup script
+# Set the entrypoint to our copy env script
 ENTRYPOINT ["/app/scripts/copy_env.sh"]
 
 # Set the default command to run the sink

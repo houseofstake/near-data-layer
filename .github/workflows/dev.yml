@@ -12,7 +12,7 @@ env:
   PROJECT_ID: "agora-near"
   REGION: "us-west1"
   DOCKER_IMAGE: "us-west1-docker.pkg.dev/agora-near/indexer/near-sink-service"
-  ENVIRONMENT: "dev"
+  ENVIRONMENT: "DEV"
 
 jobs:
   deploy-dev:
