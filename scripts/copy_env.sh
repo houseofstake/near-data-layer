@@ -11,6 +11,3 @@ export ENDPOINT=$(gcloud secrets versions access latest --secret=PINAX_ENDPOINT_
 
 # Construct DSN
 export DSN="postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@10.20.179.3:5432/postgres?sslmode=disable"
-
-# Execute the command passed to the container
-exec "$@"
