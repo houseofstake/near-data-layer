@@ -1,6 +1,6 @@
 mod pb;
 
-use substreams::store::{self, DeltaProto, StoreSetIfNotExistsProto, StoreNew, StoreSetIfNotExists};
+use substreams::store::{self, DeltaProto, StoreSetIfNotExistsProto, StoreNew, StoreSetIfNotExists, StoreSet, StoreSetProto, StoreDelete};
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use pb::sf::near::r#type::v1::{Block, receipt, execution_outcome};
 use pb::near::entities::v1::{Block as BlockEntity, Chunk, Receipt, ReceiptAction, ExecutionOutcome};
@@ -46,11 +46,18 @@ fn store_block(block: Block, s: StoreSetIfNotExistsProto<BlockEntity>) {
 }
 
 #[substreams::handlers::store]
-fn store_chunk(block: Block, s: StoreSetIfNotExistsProto<Chunk>) {
+fn store_chunk(block: Block, s: StoreSetProto<Chunk>) {
     if let Some(header) = block.header.as_ref() {
+        let current_height = header.height;
+        // Prune chunks older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            s.delete_prefix(current_height.try_into().unwrap(), &prune_height.to_string());
+        }
+
         for chunk_header in &block.chunk_headers {
             let chunk = Chunk {
-                height: header.height,
+                height: current_height,
                 chunk_hash: hex::encode(&chunk_header.chunk_hash),
                 prev_block_hash: hex::encode(&chunk_header.prev_block_hash),
                 outcome_root: hex::encode(&chunk_header.outcome_root),
@@ -69,8 +76,8 @@ fn store_chunk(block: Block, s: StoreSetIfNotExistsProto<Chunk>) {
                 author: block.author.clone(),
             };
 
-            let key = format!("{}-{}", header.height, hex::encode(&chunk_header.chunk_hash));
-            s.set_if_not_exists(header.height, key, &chunk);
+            let key = format!("{}-{}", current_height, hex::encode(&chunk_header.chunk_hash));
+            s.set(current_height, key, &chunk);
         }
     }
 }

@@ -30,7 +30,7 @@ modules:
   - name: store_chunk
     kind: store
     initialBlock: 194070330
-    updatePolicy: set_if_not_exists
+    updatePolicy: set
     valueType: proto:near.entities.v1.Chunk
     inputs:
       - source: sf.near.type.v1.Block
