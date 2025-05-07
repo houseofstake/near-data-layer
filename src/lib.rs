@@ -23,8 +23,15 @@ fn bytes_to_string(bytes: &[u8]) -> String {
 
 /// Process NEAR blocks and output database changes
 #[substreams::handlers::store]
-fn store_block(block: Block, s: StoreSetIfNotExistsProto<BlockEntity>) {
+fn store_block(block: Block, s: StoreSetProto<BlockEntity>) {
     if let Some(header) = block.header.as_ref() {
+        let current_height = header.height;
+        // Prune blocks older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            s.delete_prefix(current_height.try_into().unwrap(), &prune_height.to_string());
+        }
+
         let seconds = (header.timestamp_nanosec / 1_000_000_000) as i64;
         let nanos = (header.timestamp_nanosec % 1_000_000_000) as u32;
 
@@ -41,7 +48,7 @@ fn store_block(block: Block, s: StoreSetIfNotExistsProto<BlockEntity>) {
             total_supply: if let Some(ts) = &header.total_supply { bytes_to_string(&ts.bytes) } else { "0".to_string() },
         };
         
-        s.set_if_not_exists(header.height, header.height.to_string(), &block_entity);
+        s.set(header.height, header.height.to_string(), &block_entity);
     }
 }
 
@@ -83,8 +90,15 @@ fn store_chunk(block: Block, s: StoreSetProto<Chunk>) {
 }
 
 #[substreams::handlers::store]
-fn store_receipt(block: Block, s: StoreSetIfNotExistsProto<Receipt>) {
+fn store_receipt(block: Block, s: StoreSetProto<Receipt>) {
     if let Some(header) = block.header.as_ref() {
+        let current_height = header.height;
+        // Prune receipts older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            s.delete_prefix(current_height.try_into().unwrap(), &prune_height.to_string());
+        }
+
         for shard in &block.shards {
             for receipt_exec_outcome in &shard.receipt_execution_outcomes {
                 if let Some(receipt) = &receipt_exec_outcome.receipt {
@@ -112,7 +126,7 @@ fn store_receipt(block: Block, s: StoreSetIfNotExistsProto<Receipt>) {
                     };
 
                     let key = format!("{}-{}", header.height, if let Some(id) = &receipt.receipt_id { hex::encode(&id.bytes) } else { "".to_string() });
-                    s.set_if_not_exists(header.height, key, &receipt_entity);
+                    s.set(header.height, key, &receipt_entity);
                 }
             }
         }
@@ -120,8 +134,15 @@ fn store_receipt(block: Block, s: StoreSetIfNotExistsProto<Receipt>) {
 }
 
 #[substreams::handlers::store]
-fn store_receipt_action(block: Block, s: StoreSetIfNotExistsProto<ReceiptAction>) {
+fn store_receipt_action(block: Block, s: StoreSetProto<ReceiptAction>) {
     if let Some(header) = block.header.as_ref() {
+        let current_height = header.height;
+        // Prune receipt actions older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            s.delete_prefix(current_height.try_into().unwrap(), &prune_height.to_string());
+        }
+
         let seconds = (header.timestamp_nanosec / 1_000_000_000) as i64;
         let nanos = (header.timestamp_nanosec % 1_000_000_000) as u32;
         
@@ -211,8 +232,8 @@ fn store_receipt_action(block: Block, s: StoreSetIfNotExistsProto<ReceiptAction>
                                 }
                             }
                             
-                            // Create a unique ID by combining receipt_id and action_index
-                            let unique_id = format!("{}-{}", receipt_id, action_index);
+                            // Create a unique ID by combining height, receipt_id, and action_index
+                            let unique_id = format!("{}-{}-{}", header.height, receipt_id, action_index);
                             
                             let receipt_action = ReceiptAction {
                                 id: unique_id.clone(), // Set the new primary key field
@@ -242,9 +263,9 @@ fn store_receipt_action(block: Block, s: StoreSetIfNotExistsProto<ReceiptAction>
                                 action_index: action_index as u32,
                                 block_timestamp: timestamp.clone(),
                             };
-                            
+
                             // Use the unique ID as the key for the store
-                            s.set_if_not_exists(header.height, unique_id, &receipt_action);
+                            s.set(header.height, unique_id, &receipt_action);
                         }
                     }
                 }
@@ -254,8 +275,15 @@ fn store_receipt_action(block: Block, s: StoreSetIfNotExistsProto<ReceiptAction>
 }
 
 #[substreams::handlers::store]
-fn store_execution_outcome(block: Block, s: StoreSetIfNotExistsProto<ExecutionOutcome>) {
+fn store_execution_outcome(block: Block, s: StoreSetProto<ExecutionOutcome>) {
     if let Some(header) = block.header.as_ref() {
+        let current_height = header.height;
+        // Prune execution outcomes older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            s.delete_prefix(current_height.try_into().unwrap(), &prune_height.to_string());
+        }
+
         for shard in &block.shards {
             for receipt_exec_outcome in &shard.receipt_execution_outcomes {
                 if let (Some(execution_outcome), Some(receipt)) = (&receipt_exec_outcome.execution_outcome, &receipt_exec_outcome.receipt) {
@@ -310,8 +338,8 @@ fn store_execution_outcome(block: Block, s: StoreSetIfNotExistsProto<ExecutionOu
                             },
                         };
 
-                        // Use receipt_id as the key for the store
-                        s.set_if_not_exists(header.height, receipt_id, &execution_outcome_entity);
+                        let key = format!("{}-{}", header.height, receipt_id);
+                        s.set(header.height, key, &execution_outcome_entity);
                     }
                 }
             }
