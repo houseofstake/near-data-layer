@@ -22,7 +22,7 @@ modules:
   - name: store_block
     kind: store
     initialBlock: 194070330
-    updatePolicy: set_if_not_exists
+    updatePolicy: set
     valueType: proto:near.entities.v1.Block
     inputs:
       - source: sf.near.type.v1.Block
@@ -38,7 +38,7 @@ modules:
   - name: store_receipt
     kind: store
     initialBlock: 194070330
-    updatePolicy: set_if_not_exists
+    updatePolicy: set
     valueType: proto:near.entities.v1.Receipt
     inputs:
       - source: sf.near.type.v1.Block
@@ -46,7 +46,7 @@ modules:
   - name: store_receipt_action
     kind: store
     initialBlock: 194070330
-    updatePolicy: set_if_not_exists
+    updatePolicy: set
     valueType: proto:near.entities.v1.ReceiptAction
     inputs:
       - source: sf.near.type.v1.Block
@@ -54,7 +54,7 @@ modules:
   - name: store_execution_outcome
     kind: store
     initialBlock: 194070330
-    updatePolicy: set_if_not_exists
+    updatePolicy: set
     valueType: proto:near.entities.v1.ExecutionOutcome
     inputs:
       - source: sf.near.type.v1.Block
