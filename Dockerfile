@@ -49,11 +49,14 @@ COPY . .
 RUN substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/" && \
     cargo build --target wasm32-unknown-unknown --release
 
-# Make the startup script executable
-RUN chmod +x /app/scripts/start.sh
+# Make the copy env script executable
+RUN chmod +x /app/scripts/copy_env.sh
 
 # Set the entrypoint to our startup script
-ENTRYPOINT ["/app/scripts/start.sh"]
+ENTRYPOINT ["/app/scripts/copy_env.sh"]
+
+# Set the default command to run the sink
+CMD ["make", "setup_sink", "run_sink"]
 
 # Required environment variables (provided at runtime)
 # DSN - PostgreSQL connection string 
