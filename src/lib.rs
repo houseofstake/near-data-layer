@@ -1,6 +1,6 @@
 mod pb;
 
-use substreams::store::{self, DeltaProto, StoreSetIfNotExistsProto, StoreNew, StoreSetIfNotExists, StoreSet, StoreSetProto, StoreDelete};
+use substreams::store::{self, DeltaProto, StoreNew, StoreSet, StoreSetProto, StoreDelete};
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use pb::sf::near::r#type::v1::{Block, receipt, execution_outcome};
 use pb::near::entities::v1::{Block as BlockEntity, Chunk, Receipt, ReceiptAction, ExecutionOutcome};
