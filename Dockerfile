@@ -50,10 +50,10 @@ RUN substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/
     cargo build --target wasm32-unknown-unknown --release
 
 # Make the copy env script executable
-RUN chmod +x /app/scripts/copy_env.sh
+RUN chmod +x /app/scripts/fetch_secrets.sh
 
 # Set the entrypoint to source our script and execute the command
-ENTRYPOINT ["/bin/bash", "-c", "source /app/scripts/copy_env.sh && exec \"$@\"", "--"]
+ENTRYPOINT ["/bin/bash", "-c", "source /app/scripts/fetch_secrets.sh && exec \"$@\"", "--"]
 
 # Set the default command to run the sink
 CMD ["make", "setup_sink", "run_sink"]
