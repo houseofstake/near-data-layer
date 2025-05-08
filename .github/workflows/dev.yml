@@ -46,7 +46,11 @@ jobs:
 
       - name: Restart Compute Engine VM
         run: |
-          gcloud compute instances reset indexer-vm \
+          gcloud compute instances add-metadata indexer-vm \
             --zone=${{env.REGION}}-a \
             --project=${{env.PROJECT_ID}} \
             --metadata=ENVIRONMENT=${{env.ENVIRONMENT}}
+          
+          gcloud compute instances reset indexer-vm \
+            --zone=${{env.REGION}}-a \
+            --project=${{env.PROJECT_ID}}
