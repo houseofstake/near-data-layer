@@ -1,7 +1,5 @@
 .PHONY: build protogen stream_db_out run_sink setup clean
 
-include .env
-
 build:
 	cargo build --target wasm32-unknown-unknown --release
 
