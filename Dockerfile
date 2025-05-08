@@ -9,7 +9,14 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     unzip \
     wget \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Google Cloud SDK
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
+    apt-get update && apt-get install -y google-cloud-sdk && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
@@ -35,18 +42,6 @@ RUN wget "https://github.com/streamingfast/substreams-sink-sql/releases/download
     mv substreams-sink-sql /usr/local/bin/ && \
     rm "substreams-sink-sql_linux_x86_64.tar.gz"
 
-# Copy just the .env file first
-COPY .env /app/.env
-
-# Create entrypoint script
-RUN echo '#!/bin/bash\n\
-# Load environment variables from .env file\n\
-export $(grep -v "^#" /app/.env | xargs)\n\
-\n\
-# Run the command\n\
-exec "$@"' > /app/entrypoint.sh && \
-    chmod +x /app/entrypoint.sh
-
 # Copy application files
 COPY . .
 
@@ -54,14 +49,16 @@ COPY . .
 RUN substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/" && \
     cargo build --target wasm32-unknown-unknown --release
 
-# Set the entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Make the copy env script executable
+RUN chmod +x /app/scripts/fetch_secrets.sh
 
-# Setup and run the sink
+# Set the entrypoint to source our script and execute the command
+ENTRYPOINT ["/bin/bash", "-c", "source /app/scripts/fetch_secrets.sh && exec \"$@\"", "--"]
+
+# Set the default command to run the sink
 CMD ["make", "setup_sink", "run_sink"]
 
-
-# Required environment variables (now loaded from .env file at runtime)
+# Required environment variables (provided at runtime)
 # DSN - PostgreSQL connection string 
 # ENDPOINT - PINAX endpoint
 # SUBSTREAMS_API_KEY - PINAX API KEY 
