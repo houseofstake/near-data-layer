@@ -9,6 +9,27 @@ A substreams-based indexer for the NEAR blockchain. Data is sunk into a PostgreS
 
 - Docker and Docker Compose
 
+## GCP Credentials Setup
+
+To use Google Cloud services within the Docker container, you need to set up application default credentials:
+
+1. Install the Google Cloud SDK if you haven't already:
+   ```bash
+   # For macOS
+   brew install google-cloud-sdk
+   ```
+
+2. Authenticate with Google Cloud:
+   ```bash
+   gcloud auth login
+   ```
+
+3. Generate application default credentials:
+   ```bash
+   gcloud auth application-default login
+   ```
+   This will create a credentials file at `~/.config/gcloud/application_default_credentials.json` which will be automatically mounted into the container.
+
 ## Setup
 
 1. Create a `.env` file with your configuration:
@@ -18,7 +39,10 @@ A substreams-based indexer for the NEAR blockchain. Data is sunk into a PostgreS
    SUBSTREAMS_API_KEY=your_api_key_here
    ```
 
-   This `.env` file will be automatically copied into the Docker container during the build process and the environment variables will be loaded at container startup.
+   The application will:
+   - First check for a local `.env` file in the project root
+   - If no `.env` file is found, it will attempt to fetch secrets from GCP Secret Manager
+   - Make sure you have GCP credentials set up (see GCP Credentials Setup section) if you plan to use GCP Secret Manager
 
 2. Start the services:
    ```bash
@@ -28,7 +52,7 @@ A substreams-based indexer for the NEAR blockchain. Data is sunk into a PostgreS
    This will:
    - Start a PostgreSQL database
    - Start pgweb (PostgreSQL web interface) at http://localhost:8081
-   - Build and run the NEAR sink container with environment variables from the `.env` file
+   - Build and run the NEAR sink container with environment variables from either the `.env` file or GCP Secret Manager
 
 ## Configuration
 
