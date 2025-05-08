@@ -12,7 +12,6 @@ env:
   PROJECT_ID: "agora-near"
   REGION: "us-west1"
   DOCKER_IMAGE: "us-west1-docker.pkg.dev/agora-near/indexer/near-sink-service"
-  ENVIRONMENT: "DEV"
 
 jobs:
   deploy-dev:
@@ -46,11 +45,6 @@ jobs:
 
       - name: Restart Compute Engine VM
         run: |
-          gcloud compute instances add-metadata indexer-vm \
-            --zone=${{env.REGION}}-a \
-            --project=${{env.PROJECT_ID}} \
-            --metadata=ENVIRONMENT=${{env.ENVIRONMENT}}
-          
           gcloud compute instances reset indexer-vm \
             --zone=${{env.REGION}}-a \
             --project=${{env.PROJECT_ID}}
