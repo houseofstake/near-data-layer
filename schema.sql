@@ -82,5 +82,6 @@ CREATE TABLE IF NOT EXISTS execution_outcomes (
     executor_account_id TEXT NOT NULL,
     status TEXT NOT NULL,
     outcome_receipt_ids TEXT[] NOT NULL,
-    executed_in_block_hash TEXT NOT NULL
+    executed_in_block_hash TEXT NOT NULL,
+    logs TEXT[]
 );

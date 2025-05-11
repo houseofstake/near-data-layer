@@ -336,6 +336,7 @@ fn store_execution_outcome(block: Block, s: StoreSetProto<ExecutionOutcome>) {
                             } else {
                                 "".to_string()
                             },
+                            logs: outcome.logs.clone(),
                         };
 
                         let key = format!("{}-{}", header.height, receipt_id);
@@ -547,6 +548,21 @@ fn push_create_execution_outcome(
         "'{}'".to_string()
     };
 
+    // Format the logs array as a Postgres-style array literal
+    let logs_array_literal = if !value.logs.is_empty() {
+        format!(
+            "'{{{}}}'",
+            value
+                .logs
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    } else {
+        "'{}'".to_string()
+    };
+
     changes
         .push_change("execution_outcomes", key, ordinal, Operation::Create)
         .change("block_height", (None, value.block_height))
@@ -560,5 +576,6 @@ fn push_create_execution_outcome(
         .change("status", (None, &value.status))
         .change("receipt_id", (None, &value.receipt_id))
         .change("executed_in_block_hash", (None, &value.executed_in_block_hash))
-        .change("outcome_receipt_ids", (None, array_literal));
+        .change("outcome_receipt_ids", (None, array_literal))
+        .change("logs", (None, logs_array_literal));
 }
