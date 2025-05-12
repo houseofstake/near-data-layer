@@ -21,7 +21,8 @@ binaries:
 modules:
   - name: store_block
     kind: store
-    initialBlock: 194070330
+    # initialBlock: 194070330
+    initialBlock: 196603467
     updatePolicy: set
     valueType: proto:near.entities.v1.Block
     inputs:
@@ -29,7 +30,8 @@ modules:
 
   - name: store_chunk
     kind: store
-    initialBlock: 194070330
+    # initialBlock: 194070330
+    initialBlock: 196603467
     updatePolicy: set
     valueType: proto:near.entities.v1.Chunk
     inputs:
@@ -37,7 +39,8 @@ modules:
 
   - name: store_receipt
     kind: store
-    initialBlock: 194070330
+    # initialBlock: 194070330
+    initialBlock: 196603467
     updatePolicy: set
     valueType: proto:near.entities.v1.Receipt
     inputs:
@@ -45,7 +48,8 @@ modules:
 
   - name: store_receipt_action
     kind: store
-    initialBlock: 194070330
+    # initialBlock: 194070330
+    initialBlock: 196603467
     updatePolicy: set
     valueType: proto:near.entities.v1.ReceiptAction
     inputs:
@@ -53,7 +57,8 @@ modules:
 
   - name: store_execution_outcome
     kind: store
-    initialBlock: 194070330
+    # initialBlock: 194070330
+    initialBlock: 196603467
     updatePolicy: set
     valueType: proto:near.entities.v1.ExecutionOutcome
     inputs:
@@ -61,7 +66,8 @@ modules:
 
   - name: db_out
     kind: map
-    initialBlock: 194070330
+    # initialBlock: 194070330
+    initialBlock: 196603467
     inputs:
       - store: store_block
         mode: deltas
