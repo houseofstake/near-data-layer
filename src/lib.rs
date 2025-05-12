@@ -548,14 +548,19 @@ fn push_create_execution_outcome(
         "'{}'".to_string()
     };
 
-    // Format the logs array as a Postgres-style array literal
     let logs_array_literal = if !value.logs.is_empty() {
         format!(
             "'{{{}}}'",
             value
                 .logs
                 .iter()
-                .map(|s| s.as_str())
+                .map(|s| {
+                    let escaped = s
+                        .replace('\\', "\\\\")  // Escape backslashes
+                        .replace('"', "\\\"")   // Escape double quotes
+                        .replace('\'', "''");   // Escape single quotes for SQL string literal context
+                    format!("\"{}\"", escaped)  // Wrap each entry in double quotes for Postgres array
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         )

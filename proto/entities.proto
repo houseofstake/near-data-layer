@@ -107,5 +107,5 @@ message ExecutionOutcome {
   repeated string outcome_receipt_ids = 10; // Will be stored as TEXT[] in PostgreSQL
   string receipt_id = 11;
   string executed_in_block_hash = 12;
-  repeated string logs = 13; // Will be stored as TEXT[] in PostgreSQL
+  repeated string logs = 13;
 }
