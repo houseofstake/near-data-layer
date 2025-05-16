@@ -13,7 +13,9 @@ fi
 # Check for .env file
 if [ -f "$ENV_PATH" ]; then
     echo "Using .env file at: $ENV_PATH"
+    set -o allexport
     source "$ENV_PATH"
+    set +o allexport
 else
     echo "No local .env file found, fetching secrets from GCP Secret Manager"
     # Fetch secrets from Secret Manager
