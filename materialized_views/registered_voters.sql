@@ -91,16 +91,25 @@ execution_outcomes_prep AS (
 	ORDER BY proposal_approved_at DESC
 	LIMIT 10
 )
+, registered_voter_proposal_voting_history AS (
+	SELECT 
+		rv.signer_account_id AS registered_voter_id
+		, pvh.proposal_id 
+		, CASE 
+			WHEN t.proposal_id IS NULL THEN 0 
+			ELSE 1 END AS is_proposal_from_ten_most_recently_approved 
+	FROM registered_voters_prep AS rv 
+	INNER JOIN proposal_voting_history AS pvh 
+		ON rv.signer_account_id = pvh.voter_id
+	LEFT JOIN ten_most_recently_approved_proposals AS t
+		ON t.proposal_id = pvh.proposal_id
+)
 , proposal_participation AS (
 	SELECT
-		rv.signer_account_id                 	      AS registered_voter_id
-		, COUNT(DISTINCT t.proposal_id)               AS num_proposals_voted_on
-		, COUNT(DISTINCT t.proposal_id)::NUMERIC / 10 AS proposal_participation_rate
-	FROM registered_voters_prep AS rv
-	LEFT JOIN proposal_voting_history AS pvh
-		ON rv.signer_account_id = pvh.voter_id
-	INNER JOIN ten_most_recently_approved_proposals AS t
-		ON t.proposal_id = pvh.proposal_id
+		registered_voter_id
+		, SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC      AS num_recently_approved_proposals_voted_on
+		, SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC / 10 AS proposal_participation_rate 
+	FROM registered_voter_proposal_voting_history
 	GROUP BY 1
 )
 
