@@ -1,6 +1,9 @@
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use crate::pb::near::entities::v1::Chunk;
 
+// DEPRECATED: Chunks data is no longer needed
+// Keeping function here in case we need it in the future
+#[allow(dead_code)]
 pub fn push_create_chunk(
     changes: &mut DatabaseChanges,
     key: &str,

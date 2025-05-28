@@ -3,16 +3,12 @@ use crate::pb::sf::near::r#type::v1::Block;
 use crate::pb::near::entities::v1::Block as BlockEntity;
 
 use crate::pushers::push_create_block;
-use crate::processors::{process_chunk, process_shard};
+use crate::processors::process_shard;
 use crate::processors::utils::{bytes_to_string, format_timestamp};
 
 pub fn process_block(changes: &mut DatabaseChanges, block: &Block) {
     if let Some(header) = &block.header {
         process_block_header(changes, header, &block.author);
-        
-        for chunk_header in &block.chunk_headers {
-            process_chunk(changes, chunk_header, header.height, &block.author);
-        }
 
         for shard in &block.shards {
             process_shard(changes, shard, header, &block.author);

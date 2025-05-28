@@ -5,6 +5,9 @@ use crate::pb::near::entities::v1::Chunk;
 use crate::pushers::push_create_chunk;
 use crate::processors::utils::bytes_to_string;
 
+// DEPRECATED: Chunks data is no longer needed
+// Keeping function here in case we need it in the future
+#[allow(dead_code)]
 pub fn process_chunk(
     changes: &mut DatabaseChanges,
     chunk_header: &ChunkHeader,
