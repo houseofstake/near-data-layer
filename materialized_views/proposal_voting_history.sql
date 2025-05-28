@@ -10,7 +10,7 @@
    4. The voting power of the voter at the time the vote was executed (from execution_outcomes.logs)
    5. The voting power delegated on a vote action 
    6. The timestamp at which the vote action occurred 
-   7. The block-related data for this vote (block hash/id, chunk hash/id, block height) 
+   7. The block-related data for this vote (block hash/id, block height) 
 */
 
 CREATE MATERIALIZED VIEW proposal_voting_history AS
@@ -32,11 +32,18 @@ WITH execution_outcomes_prep AS (
  		AND eo.status = 'SuccessValue'
   	WHERE 
     	ra.action_kind = 'FunctionCall'
-    	AND ra.method_name = 'vote'
     	AND ra.receiver_id IN (           --House of Stake contracts
     		'v.r-1745564650.testnet'      --veNEAR contract 
     		, 'vote.r-1745564650.testnet' --Voting contract
     		) 
+)
+, proposal_metadata AS (
+	SELECT 
+		(convert_from(ra.args, 'UTF8')::json->'metadata'->>'title') 						 AS proposal_name
+		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::numeric AS proposal_id 
+	FROM receipt_actions_prep AS ra
+	WHERE 
+		ra.method_name = 'create_proposal'
 )
 , proposal_voting_history AS (
 	SELECT 
@@ -68,10 +75,10 @@ WITH execution_outcomes_prep AS (
 		--Block Data 
 		, ra.block_height 
 		, base58_encode(ra.block_hash) AS block_hash 
-		, base58_encode(ra.chunk_hash) AS chunk_hash
 	FROM receipt_actions_prep AS ra
  	WHERE 
-		(convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric IS NOT NULL
+		ra.method_name = 'vote'
+		AND (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric IS NOT NULL
 	ORDER BY proposal_id ASC, voted_at ASC 
 )
 , latest_vote_per_proposal_and_voter AS (
@@ -81,25 +88,27 @@ WITH execution_outcomes_prep AS (
 	FROM proposal_voting_history 
 )
 SELECT 
-	id 
-	, receipt_id 
-	, voted_date 
-	, voted_at 
-	, proposal_id 
-	, hos_contract_address 
-	, voter_id 
-	, vote_option 
-	, voting_power 
-	, near_balance 
-	, extra_venear_balance 
-	, delegator_account_id 
-	, delegated_near_balance 
-	, delegated_extra_venear_balance 
-	, block_height 
-	, block_hash
-	, chunk_hash 
-FROM latest_vote_per_proposal_and_voter
+	l.id 
+	, l.receipt_id 
+	, l.voted_date 
+	, l.voted_at 
+	, l.proposal_id 
+	, pm.proposal_name
+	, l.hos_contract_address 
+	, l.voter_id 
+	, l.vote_option 
+	, l.voting_power 
+	, l.near_balance 
+	, l.extra_venear_balance 
+	, l.delegator_account_id 
+	, l.delegated_near_balance 
+	, l.delegated_extra_venear_balance 
+	, l.block_height 
+	, l.block_hash
+FROM latest_vote_per_proposal_and_voter AS l
+LEFT JOIN proposal_metadata AS pm 
+	ON l.proposal_id = pm.proposal_id
 WHERE 
-	row_num = 1
+	l.row_num = 1
 WITH DATA
 ;

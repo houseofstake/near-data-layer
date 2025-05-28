@@ -7,7 +7,7 @@
    1. A registered voter ID                                           (The voter account; eg. lighttea2007.testnet) 
    2. The related House of Stake Contract                             (veNEAR contract address, v.r-1745564650.testnet)
    3. The timestamp at which the voter registration action occurred 
-   4. The block-related data for this deploy_lockup action            (Block hash/id, chunk hash/id, block height) 
+   4. The block-related data for this deploy_lockup action            (Block hash/id, block height) 
    5. The registerd voter's current voting power                      (Sourced from the execution_outcomes.logs value associated with the voter account's latest on_lockup_update event from receipt_actions)  
    6. The registered voter's initial voting power                     (Sourced from the execution_outcomes.logs value associated with the storage_deposit event that gets emitted upon vote registration) 
    7. The registered voter's proposal participation rate              (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract; always a percentage out of 10)
@@ -60,7 +60,6 @@ execution_outcomes_prep AS (
     	, ra.receiver_id 																				                AS hos_contract_address
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
-    	, base58_encode(ra.chunk_hash) AS chunk_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'storage_deposit'
@@ -74,8 +73,7 @@ execution_outcomes_prep AS (
     	, (convert_from(ra.args_decoded, 'UTF8')::json->'update'->'V1'->>'locked_near_balance')::NUMERIC                AS current_voting_power_args
     	, ra.receiver_id 																								AS hos_contract_address
     	, ra.block_height
-    	, base58_encode(ra.block_hash) 																					AS block_hash
-    	, base58_encode(ra.chunk_hash) 																					AS chunk_hash
+    	, base58_encode(ra.block_hash) 																					AS block_hash																				
     	, ra.action_logs
     	, ROW_NUMBER() OVER (PARTITION BY signer_account_id ORDER BY block_timestamp DESC) 				                AS row_num
   	FROM receipt_actions_prep AS ra
@@ -136,7 +134,6 @@ SELECT
  	--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)
  	, ra.block_height
  	, base58_encode(ra.block_hash) AS block_hash
- 	, base58_encode(ra.chunk_hash) AS chunk_hash
 
 FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
 LEFT JOIN current_voting_power AS cvp 					    --Sourced from the voter's most recent on_lockup_update event
