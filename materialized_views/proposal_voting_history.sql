@@ -39,7 +39,7 @@ WITH execution_outcomes_prep AS (
 )
 , proposal_metadata AS (
 	SELECT 
-		(convert_from(ra.args, 'UTF8')::json->'metadata'->>'title') 						 AS proposal_name
+		(convert_from(ra.args, 'UTF8')::json->'metadata'->>'title') AS proposal_name
 		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::numeric AS proposal_id 
 	FROM receipt_actions_prep AS ra
 	WHERE 
