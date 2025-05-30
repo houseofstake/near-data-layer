@@ -49,25 +49,25 @@ WITH execution_outcomes_prep AS (
 )
 SELECT
 	MD5(CONCAT(base58_encode(ra.receipt_id), '_',  	
- 		REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id'))      AS id 
- 	, base58_encode(ra.receipt_id)  											       AS receipt_id
- 	, DATE(ra.block_timestamp) 													       AS event_date
- 	, ra.block_timestamp 														       AS event_timestamp
- 	, ra.receiver_id    														       AS hos_contract_address 
- 	, ra.predecessor_id 													           AS delegator_id 
- 	, (CONVERT_FROM(ra.args, 'UTF8')::json->>'receiver_id') 					       AS delegatee_id --null for the undelegate event 
- 	, ra.method_name 																   AS delegate_method
-	, REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->>'event' 			           AS delegate_event 
+ 		REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id')) AS id 
+ 	, base58_encode(ra.receipt_id) AS receipt_id
+ 	, DATE(ra.block_timestamp) AS event_date
+ 	, ra.block_timestamp AS event_timestamp
+ 	, ra.receiver_id AS hos_contract_address 
+ 	, ra.predecessor_id AS delegator_id 
+ 	, (CONVERT_FROM(ra.args, 'UTF8')::json->>'receiver_id') AS delegatee_id --null for the undelegate event 
+ 	, ra.method_name AS delegate_method
+	, REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->>'event' AS delegate_event 
 	, CASE 
  	 	WHEN row_num = 1 
  	 	THEN TRUE 
- 	 	ELSE FALSE END 																   AS is_latest_delegator_event 
-	, REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id'          AS owner_id
+ 	 	ELSE FALSE END AS is_latest_delegator_event 
+	, REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id' AS owner_id
 	, (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'amount')::NUMERIC AS near_amount
 		
 	--Block Data 
 	, ra.block_height
- 	, base58_encode(ra.block_hash)  												   AS block_hash
+ 	, base58_encode(ra.block_hash) AS block_hash
  FROM delegate_undelegate_events AS ra
  LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  	ON TRUE
