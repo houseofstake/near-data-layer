@@ -20,8 +20,8 @@ WITH execution_outcomes_prep AS (
 , receipt_actions_prep AS (
 	SELECT
  		decode(ra.args_base64, 'base64') AS args_decoded
- 		, eo.status 					 AS action_status
- 		, eo.logs 						 AS action_logs
+ 		, eo.status AS action_status
+ 		, eo.logs AS action_logs
  		, ra.*
  	FROM receipt_actions AS ra
  	INNER JOIN execution_outcomes_prep AS eo
@@ -36,38 +36,38 @@ WITH execution_outcomes_prep AS (
 )
 , create_proposal AS ( 
  	SELECT
- 		base58_encode(ra.receipt_id) 	AS id
- 		, base58_encode(ra.receipt_id)  AS receipt_id
- 		, DATE(ra.block_timestamp) 		AS proposal_created_date
- 		, ra.block_timestamp 			AS proposal_created_at
+ 		base58_encode(ra.receipt_id) AS id
+ 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		, DATE(ra.block_timestamp) AS proposal_created_date
+ 		, ra.block_timestamp AS proposal_created_at
 
  		--Proposal Details
- 		, ra.receiver_id 											    							AS hos_contract_address
+ 		, ra.receiver_id AS hos_contract_address
  		, (REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::NUMERIC AS proposal_id 
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'title') 						AS proposal_title
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'description') 				AS proposal_description
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'link') 						AS proposal_url
-	 	, ra.signer_account_id 																		AS proposal_creator_id
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'title') AS proposal_title
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'description') AS proposal_description
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'link') AS proposal_url
+	 	, ra.signer_account_id AS proposal_creator_id
 	 	, ra.action_logs 
 	 	
 	 	--Block Data 
 	 	, ra.block_height
- 		, base58_encode(ra.block_hash)  AS block_hash
+ 		, base58_encode(ra.block_hash) AS block_hash
  	FROM receipt_actions_prep AS ra
  	WHERE
  		ra.method_name = 'create_proposal'
 )
 , approve_proposal AS (
  	SELECT
- 		base58_encode(ra.receipt_id) 	AS id
- 		, base58_encode(ra.receipt_id)  AS receipt_id
- 		, DATE(ra.block_timestamp) 		AS proposal_approved_date
- 		, ra.block_timestamp 			AS proposal_approved_at
+ 		base58_encode(ra.receipt_id) AS id
+ 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		, DATE(ra.block_timestamp) AS proposal_approved_date
+ 		, ra.block_timestamp AS proposal_approved_at
 
  		--Proposal Details
- 		, ra.receiver_id 												         AS hos_contract_address
+ 		, ra.receiver_id AS hos_contract_address
  		, (convert_from(ra.args_decoded, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
- 		, ra.signer_account_id 										             AS proposal_approver_id
+ 		, ra.signer_account_id AS proposal_approver_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra
  	WHERE
@@ -75,15 +75,15 @@ WITH execution_outcomes_prep AS (
  )
  , reject_proposal as (
  	SELECT
- 		base58_encode(ra.receipt_id) 	AS id
- 		, base58_encode(ra.receipt_id)  AS receipt_id
- 		, DATE(ra.block_timestamp) 		AS proposal_rejected_date
- 		, ra.block_timestamp 			AS proposal_rejected_at
+ 		base58_encode(ra.receipt_id) AS id
+ 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		, DATE(ra.block_timestamp) AS proposal_rejected_date
+ 		, ra.block_timestamp AS proposal_rejected_at
 
  		--Proposal Details
- 		, ra.receiver_id 											             AS hos_contract_address
+ 		, ra.receiver_id AS hos_contract_address
  		, (convert_from(ra.args_decoded, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
- 		, ra.signer_account_id 										             AS proposal_rejecter_id
+ 		, ra.signer_account_id AS proposal_rejecter_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra
  	WHERE
@@ -92,9 +92,9 @@ WITH execution_outcomes_prep AS (
  , proposal_votes AS ( 
  	SELECT 
  		proposal_id 
- 		, COUNT(DISTINCT voter_id) 								    AS num_distinct_voters 
+ 		, COUNT(DISTINCT voter_id) AS num_distinct_voters 
  		, STRING_AGG(DISTINCT voter_id, ', ' ORDER BY voter_id ASC)	AS listagg_distinct_voters 
- 		, SUM(CASE WHEN vote_option = 1 THEN 1 ELSE 0 END) 			AS num_against_votes 
+ 		, SUM(CASE WHEN vote_option = 1 THEN 1 ELSE 0 END) AS num_against_votes 
  	FROM proposal_voting_history 
  	GROUP BY 1
  )
@@ -136,8 +136,8 @@ WITH execution_outcomes_prep AS (
  	--Vote Details 
  	, pv.listagg_distinct_voters
  	, COALESCE(pv.num_distinct_voters, 0) AS num_distinct_voters 
- 	, COALESCE(pv.num_for_votes, 0)       AS num_for_votes
- 	, COALESCE(pv.num_against_votes, 0)   AS num_against_votes 
+ 	, COALESCE(pv.num_for_votes, 0) AS num_for_votes
+ 	, COALESCE(pv.num_against_votes, 0) AS num_against_votes 
  	
  	--Block Data 
 	, cp.block_height 
