@@ -1,7 +1,0 @@
-# Development contract IDs
-venear_contract_ids = [
-    "v.r-1745564650.testnet",
-    "vote.r-1745564650.testnet",
-    "v.r-1746683627.testnet",
-    "vote.r-1746683627.testnet"
-]

@@ -1,6 +1,7 @@
 use substreams_database_change::pb::database::DatabaseChanges;
 use crate::pb::sf::near::r#type::v1::{ReceiptAction, Receipt, BlockHeader, IndexerShard, Action, action};
 use crate::pb::near::entities::v1::ReceiptAction as ReceiptActionEntity;
+use crate::config::Settings;
 
 use crate::pushers::push_create_receipt_action;
 use crate::processors::utils::{bytes_to_string, format_timestamp};
@@ -14,6 +15,14 @@ pub fn process_receipt_actions(
     receipt_id: &str,
     author: &str,
 ) {
+
+    let settings = Settings::new().expect("Failed to load config");
+    
+    // Skip if receiver_id doesn't match any configured contract
+    if !settings.venear_contract_ids.iter().any(|id| receipt.receiver_id.ends_with(id)) {
+        return;
+    }
+
     let signer_account_id = action_receipt.signer_id.clone();
     let signer_public_key = if let Some(pk) = &action_receipt.signer_public_key {
         format!("{:?}:{}", pk.r#type, hex::encode(&pk.bytes))
@@ -27,9 +36,13 @@ pub fn process_receipt_actions(
         "0".to_string()
     };
     
-    for (action_index, action) in action_receipt.actions.iter().enumerate() {
+    // We will only process FunctionCall actions
+    for (action_index, action) in action_receipt.actions.iter()
+        .enumerate()
+        .filter(|(_, action)| matches!(&action.action, Some(action::Action::FunctionCall(_)))) 
+    {
         let (action_kind, method_name, gas, deposit, args_base64) = process_action(action);
-        
+
         let unique_id = format!("{}-{}-{}", header.height, receipt_id, action_index);
         
         let receipt_action = ReceiptActionEntity {
