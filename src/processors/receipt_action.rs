@@ -15,11 +15,18 @@ pub fn process_receipt_actions(
     receipt_id: &str,
     author: &str,
 ) {
-
     let settings = Settings::new().expect("Failed to load config");
-    
-    // Skip if receiver_id doesn't match any configured contract
-    if !settings.venear_contract_ids.iter().any(|id| receipt.receiver_id.ends_with(id)) {
+
+    // Helper function to check if an id matches our criteria
+    let is_valid_id = |id: &str| -> bool {
+        settings.venear_contract_ids.iter().any(|contract_id| {
+            id.ends_with(&format!("v.{}", contract_id)) // id ends with v.contract_id
+            || id == format!("vote.{}", contract_id)       // id is vote.contract_id
+        })
+    };
+
+    // Skip if neither receiver_id nor predecessor_id matches our criteria
+    if !is_valid_id(&receipt.receiver_id) && !is_valid_id(&receipt.predecessor_id) {
         return;
     }
 
@@ -42,7 +49,7 @@ pub fn process_receipt_actions(
         .filter(|(_, action)| matches!(&action.action, Some(action::Action::FunctionCall(_)))) 
     {
         let (action_kind, method_name, gas, deposit, args_base64) = process_action(action);
-
+        
         let unique_id = format!("{}-{}-{}", header.height, receipt_id, action_index);
         
         let receipt_action = ReceiptActionEntity {
