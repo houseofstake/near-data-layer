@@ -1,0 +1,21 @@
+name: example_view
+description: "Example materialized view for near testnet data"
+index_fields:
+  - name: "block_timestamp"
+    type: "DESC"
+  - name: "transaction_hash"
+    type: "HASH"
+
+query: |
+  SELECT 
+    block_timestamp,
+    transaction_hash,
+    receiver_account_id,
+    predecessor_account_id
+  FROM near_transactions
+  WHERE block_timestamp >= NOW() - INTERVAL '24 hours'
+
+cron_schedule:
+  name: "refresh_example_view"
+  schedule: "0 */6 * * *"  # Every 6 hours
+  timezone: "UTC" 
