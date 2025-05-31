@@ -16,26 +16,29 @@ CREATE TABLE IF NOT EXISTS blocks (
     total_supply TEXT NOT NULL
 ); 
 
-CREATE TABLE IF NOT EXISTS chunks (
-    height BIGINT NOT NULL,
-    chunk_hash TEXT NOT NULL,
-    prev_block_hash TEXT NOT NULL,
-    outcome_root TEXT NOT NULL,
-    prev_state_root TEXT NOT NULL,
-    encoded_merkle_root TEXT NOT NULL,
-    encoded_length BIGINT NOT NULL,
-    height_created BIGINT NOT NULL,
-    height_included BIGINT NOT NULL,
-    shard_id BIGINT NOT NULL,
-    gas_used BIGINT NOT NULL,
-    gas_limit BIGINT NOT NULL,
-    validator_reward TEXT NOT NULL,
-    balance_burnt TEXT NOT NULL,
-    outgoing_receipts_root TEXT NOT NULL,
-    tx_root TEXT NOT NULL,
-    author TEXT NOT NULL,
-    PRIMARY KEY (chunk_hash)
-); 
+-- DEPRECATED: Chunks data is no longer needed
+-- Keeping schema in case we need it in the future
+
+-- CREATE TABLE IF NOT EXISTS chunks (
+--     height BIGINT NOT NULL,
+--     chunk_hash TEXT NOT NULL,
+--     prev_block_hash TEXT NOT NULL,
+--     outcome_root TEXT NOT NULL,
+--     prev_state_root TEXT NOT NULL,
+--     encoded_merkle_root TEXT NOT NULL,
+--     encoded_length BIGINT NOT NULL,
+--     height_created BIGINT NOT NULL,
+--     height_included BIGINT NOT NULL,
+--     shard_id BIGINT NOT NULL,
+--     gas_used BIGINT NOT NULL,
+--     gas_limit BIGINT NOT NULL,
+--     validator_reward TEXT NOT NULL,
+--     balance_burnt TEXT NOT NULL,
+--     outgoing_receipts_root TEXT NOT NULL,
+--     tx_root TEXT NOT NULL,
+--     author TEXT NOT NULL,
+--     PRIMARY KEY (chunk_hash)
+-- );
 
 CREATE TABLE IF NOT EXISTS receipts (
     height BIGINT NOT NULL,

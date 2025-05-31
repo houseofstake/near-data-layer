@@ -21,8 +21,8 @@ binaries:
 modules:
   - name: db_out
     kind: map
-    # initialBlock: 194070330
-    initialBlock: 196603467
+    initialBlock: 162542069 # May 2024 
+    # initialBlock: 198570538 # Receipt Actions Example Block 
     inputs:
       - source: sf.near.type.v1.Block
     output:

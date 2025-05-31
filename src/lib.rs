@@ -1,6 +1,7 @@
 mod pb;
 mod processors;
 mod pushers;
+pub mod config;
 
 use substreams_database_change::pb::database::DatabaseChanges;
 use crate::processors::process_block;
