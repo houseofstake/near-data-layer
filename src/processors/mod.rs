@@ -3,7 +3,7 @@ mod shard;
 mod receipt;
 mod receipt_action;
 mod execution_outcome;
-pub mod utils;
+mod utils;
 
 pub use block::*;
 pub use shard::*;
