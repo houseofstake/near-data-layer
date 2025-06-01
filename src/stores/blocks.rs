@@ -1,4 +1,4 @@
-use substreams::store::{StoreNew, StoreSet, StoreSetProto};
+use substreams::store::{StoreNew, StoreSet, StoreDelete, StoreSetProto};
 use crate::pb::sf::near::r#type::v1::Block;
 use crate::pb::near::entities::v1::Block as BlockEntity;
 use crate::processors::utils::{bytes_to_string, format_timestamp};
@@ -6,6 +6,8 @@ use crate::processors::utils::{bytes_to_string, format_timestamp};
 #[substreams::handlers::store]
 fn store_blocks(block: Block, store: StoreSetProto<BlockEntity>) {
     if let Some(header) = &block.header {
+        let current_height = header.height;
+
         let block_entity = BlockEntity {
             height: header.height,
             hash: if let Some(h) = &header.hash { hex::encode(&h.bytes) } else { "".to_string() },
@@ -17,6 +19,12 @@ fn store_blocks(block: Block, store: StoreSetProto<BlockEntity>) {
         };
         
         let key = header.height.to_string();
-        store.set(0, &key, &block_entity);
+        store.set(current_height, &key, &block_entity);
+
+        // Prune blocks older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            store.delete_prefix(prune_height.try_into().unwrap(), &prune_height.to_string());
+        }
     }
 } 

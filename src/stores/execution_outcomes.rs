@@ -1,10 +1,12 @@
-use substreams::store::{StoreNew, StoreSet, StoreSetProto};
+use substreams::store::{StoreNew, StoreSet, StoreDelete, StoreSetProto};
 use crate::pb::sf::near::r#type::v1::Block;
 use crate::pb::near::entities::v1::ExecutionOutcome as ExecutionOutcomeEntity;
 
 #[substreams::handlers::store]
 fn store_execution_outcomes(block: Block, store: StoreSetProto<ExecutionOutcomeEntity>) {
     if let Some(header) = &block.header {
+        let current_height = header.height;
+
         for shard in &block.shards {
             if let Some(chunk) = &shard.chunk {
                 for outcome_with_receipt in &shard.receipt_execution_outcomes {
@@ -41,11 +43,19 @@ fn store_execution_outcomes(block: Block, store: StoreSetProto<ExecutionOutcomeE
                                 logs: outcome_data.logs.clone(),
                             };
 
-                            store.set(0, &receipt_id, &execution_outcome_entity);
+                            // Use height-prefixed key format for efficient pruning
+                            let key = format!("{}-{}", header.height, receipt_id);
+                            store.set(current_height, &key, &execution_outcome_entity);
                         }
                     }
                 }
             }
+        }
+
+        // Prune execution outcomes older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            store.delete_prefix(prune_height.try_into().unwrap(), &prune_height.to_string());
         }
     }
 } 

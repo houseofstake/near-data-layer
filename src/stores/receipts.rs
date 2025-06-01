@@ -1,10 +1,12 @@
-use substreams::store::{StoreNew, StoreSet, StoreSetProto};
+use substreams::store::{StoreNew, StoreSet, StoreDelete, StoreSetProto};
 use crate::pb::sf::near::r#type::v1::{Block, receipt};
 use crate::pb::near::entities::v1::Receipt as ReceiptEntity;
 
 #[substreams::handlers::store]
 fn store_receipts(block: Block, store: StoreSetProto<ReceiptEntity>) {
     if let Some(header) = &block.header {
+        let current_height = header.height;
+
         for shard in &block.shards {
             if let Some(chunk) = &shard.chunk {
                 // Process execution outcomes to get receipt IDs
@@ -39,11 +41,17 @@ fn store_receipts(block: Block, store: StoreSetProto<ReceiptEntity>) {
                             };
 
                             let key = format!("{}-{}", header.height, receipt_id);
-                            store.set(0, &key, &receipt_entity);
+                            store.set(current_height, &key, &receipt_entity);
                         }
                     }
                 }
             }
+        }
+
+        // Prune receipts older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            store.delete_prefix(prune_height.try_into().unwrap(), &prune_height.to_string());
         }
     }
 } 

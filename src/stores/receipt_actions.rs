@@ -1,4 +1,4 @@
-use substreams::store::{StoreNew, StoreSet, StoreSetProto};
+use substreams::store::{StoreNew, StoreSet, StoreDelete, StoreSetProto};
 use crate::pb::sf::near::r#type::v1::{Block, Action, action, receipt};
 use crate::pb::near::entities::v1::ReceiptAction as ReceiptActionEntity;
 use crate::config::Settings;
@@ -7,7 +7,7 @@ use crate::processors::utils::{bytes_to_string, format_timestamp};
 #[substreams::handlers::store]
 fn store_receipt_actions(block: Block, store: StoreSetProto<ReceiptActionEntity>) {
     let settings = Settings::new().expect("Failed to load config");
-    
+
     // Helper function to check if an id matches our criteria
     let is_valid_id = |id: &str| -> bool {
         settings.venear_contract_ids.iter().any(|contract_id| {
@@ -17,6 +17,8 @@ fn store_receipt_actions(block: Block, store: StoreSetProto<ReceiptActionEntity>
     };
 
     if let Some(header) = &block.header {
+        let current_height = header.height;
+        
         for shard in &block.shards {
             if let Some(chunk) = &shard.chunk {
                 for (i, receipt) in chunk.receipts.iter().enumerate() {
@@ -88,11 +90,17 @@ fn store_receipt_actions(block: Block, store: StoreSetProto<ReceiptActionEntity>
                             };
 
                             let key = unique_id;
-                            store.set(0, &key, &receipt_action_entity);
+                            store.set(current_height, &key, &receipt_action_entity);
                         }
                     }
                 }
             }
+        }
+
+        // Prune receipt actions older than 1,000 blocks
+        if current_height > 1000 {
+            let prune_height = current_height - 1000;
+            store.delete_prefix(prune_height.try_into().unwrap(), &prune_height.to_string());
         }
     }
 }
