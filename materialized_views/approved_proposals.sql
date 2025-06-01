@@ -7,7 +7,7 @@
    1. A proposal approver ID                                              (eg. lighttea2007.testnet) 
    2. The related House of Stake Contract                                 (Voter contract address, vote.r-1745564650.testnet)
    3. The date + timestamp at which the proposal approval action occurred 
-   4. The block-related data for this approve_proposal action             (Block hash/id, chunk hash/id, block height) 
+   4. The block-related data for this approve_proposal action             (Block hash/id, block height) 
 */
 
 --Create the materialized view
@@ -53,7 +53,6 @@ WITH execution_outcomes_prep AS (
  	--Block details
  	, ra.block_hash
  	, ra.block_height
- 	, ra.chunk_hash
  FROM approve_proposal_action_prep AS ra
  ORDER BY block_timestamp DESC
  WITH DATA
