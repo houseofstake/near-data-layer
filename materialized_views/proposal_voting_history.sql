@@ -13,6 +13,7 @@
    7. The block-related data for this vote (block hash/id, block height) 
 */
 
+--Create the materialized view
 CREATE MATERIALIZED VIEW proposal_voting_history AS
 WITH execution_outcomes_prep AS (
 	SELECT 
@@ -40,7 +41,7 @@ WITH execution_outcomes_prep AS (
 , proposal_metadata AS (
 	SELECT 
 		(convert_from(ra.args, 'UTF8')::json->'metadata'->>'title') AS proposal_name
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::numeric AS proposal_id 
+		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::NUMERIC AS proposal_id 
 	FROM receipt_actions_prep AS ra
 	WHERE 
 		ra.method_name = 'create_proposal'
@@ -53,21 +54,21 @@ WITH execution_outcomes_prep AS (
 		, ra.block_timestamp           AS voted_at 
 	
 		--IDs 																					
-		, (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric AS proposal_id
+		, (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
 		, ra.receiver_id    											 AS hos_contract_address 
 		, ra.predecessor_id 											 AS voter_id 
 	
 		/* Voter Data Per Proposal */
 		--Votes Info
-		, (convert_from(ra.args, 'UTF8')::json->>'vote')::numeric                                				AS vote_option
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'account_balance')::numeric 			    AS voting_power
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'balance'->>'near_balance')::numeric         AS near_balance 
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'balance'->>'extra_venear_balance')::numeric AS extra_venear_balance
+		, (convert_from(ra.args, 'UTF8')::json->>'vote')::NUMERIC                                				AS vote_option
+		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'account_balance')::NUMERIC 			    AS voting_power
+		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'balance'->>'near_balance')::NUMERIC         AS near_balance 
+		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'balance'->>'extra_venear_balance')::NUMERIC AS extra_venear_balance
 	
     	--Delegation Info
 		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegation'->>'account_id')        					  AS delegator_account_id 
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegated_balance'->>'near_balance')::numeric         AS delegated_near_balance
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegated_balance'->>'extra_venear_balance')::numeric AS delegated_extra_venear_balance
+		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegated_balance'->>'near_balance')::NUMERIC         AS delegated_near_balance
+		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegated_balance'->>'extra_venear_balance')::NUMERIC AS delegated_extra_venear_balance
 	
 		--Logs 
 		, ra.logs
@@ -78,7 +79,7 @@ WITH execution_outcomes_prep AS (
 	FROM receipt_actions_prep AS ra
  	WHERE 
 		ra.method_name = 'vote'
-		AND (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric IS NOT NULL
+		AND (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::NUMERIC IS NOT NULL
 	ORDER BY proposal_id ASC, voted_at ASC 
 )
 , latest_vote_per_proposal_and_voter AS (
@@ -112,3 +113,16 @@ WHERE
 	l.row_num = 1
 WITH DATA
 ;
+
+--Create the unique index for the view 
+CREATE UNIQUE INDEX proposal_voting_history_id_idx ON proposal_voting_history (id);
+
+--Create the cron schedule
+SELECT cron.schedule(
+    'refresh_proposal_voting_history', 
+    '* * * * *',                   -- every minute
+    $$REFRESH MATERIALIZED VIEW CONCURRENTLY proposal_voting_history;$$
+);
+
+--Pause the cron schedule 
+SELECT cron.alter_job(8, active := false);

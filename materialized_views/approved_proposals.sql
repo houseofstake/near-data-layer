@@ -7,10 +7,10 @@
    1. A proposal approver ID                                              (eg. lighttea2007.testnet) 
    2. The related House of Stake Contract                                 (Voter contract address, vote.r-1745564650.testnet)
    3. The date + timestamp at which the proposal approval action occurred 
-   4. The block-related data for this approve_proposal action             (Block hash/id, block height) 
+   4. The block-related data for this approve_proposal action             (Block hash/id, chunk hash/id, block height) 
 */
 
-
+--Create the materialized view
 CREATE MATERIALIZED VIEW approved_proposals AS
 WITH execution_outcomes_prep AS (
 	SELECT
@@ -53,7 +53,21 @@ WITH execution_outcomes_prep AS (
  	--Block details
  	, ra.block_hash
  	, ra.block_height
+ 	, ra.chunk_hash
  FROM approve_proposal_action_prep AS ra
  ORDER BY block_timestamp DESC
  WITH DATA
  ;
+
+--Create the unique index for the view 
+ CREATE UNIQUE INDEX approved_proposals_id_idx ON approved_proposals (id);
+
+--Create the cron schedule
+SELECT cron.schedule(
+    'refresh_approved_proposals', 
+    '* * * * *',                   -- every minute
+    $$REFRESH MATERIALIZED VIEW CONCURRENTLY approved_proposals;$$
+);
+
+--Pause the cron schedule 
+SELECT cron.alter_job(9, active := false);

@@ -26,6 +26,9 @@ WITH cron_jobs AS (
 		, d.return_message 
 		, d.start_time 
 		, d.end_time 
+        , EXTRACT(EPOCH FROM (d.end_time - d.start_time)) AS run_duration_sec
+		, AVG(EXTRACT(EPOCH FROM (d.end_time - d.start_time))) 
+			OVER (PARTITION BY j.jobid ORDER BY d.start_time ASC ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) AS rolling_last_10_runs_runtime_avg_sec
 		, j.schedule 
 		, j.command 
 		, d.runid AS latest_run_id
@@ -45,6 +48,10 @@ SELECT
 		ELSE FALSE
 		END AS is_currently_running
 	, crj.start_time AS current_run_start_at
+	, jr.rolling_last_10_runs_runtime_avg_sec
+	, jr.rolling_last_10_runs_runtime_avg_sec/60 AS rolling_last_10_runs_runtime_avg_min
+	, jr.run_duration_sec
+	, jr.run_duration_sec/60 AS run_duration_min
 	, jr.latest_completed_run_status 
 	, jr.return_message
 	, jr.start_time 

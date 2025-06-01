@@ -13,6 +13,7 @@
    7. The registered voter's proposal participation rate              (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract; always a percentage out of 10)
 */
 
+--Create the materialized view
 CREATE MATERIALIZED VIEW registered_voters AS
 WITH
 /* Sourcing Registered Voters */
@@ -147,3 +148,16 @@ WHERE
 ORDER BY ra.block_timestamp DESC
 WITH DATA
 ;
+
+--Create the unique index for the view 	
+CREATE UNIQUE INDEX registered_voters_id_idx ON registered_voters (id);
+
+--Create the cron schedule
+SELECT cron.schedule(
+    'refresh_registered_voters', 
+    '* * * * *',                   -- every minute
+    $$REFRESH MATERIALIZED VIEW CONCURRENTLY registered_voters;$$
+);
+
+--Pause the cron schedule 
+SELECT cron.alter_job(11, active := false);
