@@ -1,7 +1,6 @@
 use substreams_database_change::pb::database::DatabaseChanges;
 use crate::pb::sf::near::r#type::v1::{ReceiptAction, Receipt, BlockHeader, IndexerShard, Action, action};
 use crate::pb::near::entities::v1::ReceiptAction as ReceiptActionEntity;
-use crate::config::Settings;
 
 use crate::pushers::push_create_receipt_action;
 use crate::processors::utils::{bytes_to_string, format_timestamp};
@@ -15,20 +14,8 @@ pub fn process_receipt_actions(
     receipt_id: &str,
     author: &str,
 ) {
-    let settings = Settings::new().expect("Failed to load config");
-
-    // Helper function to check if an id matches our criteria
-    let is_valid_id = |id: &str| -> bool {
-        settings.venear_contract_ids.iter().any(|contract_id| {
-            id.ends_with(&format!("v.{}", contract_id)) // id ends with v.contract_id
-            || id == format!("vote.{}", contract_id)       // id is vote.contract_id
-        })
-    };
-
-    // Skip if neither receiver_id nor predecessor_id matches our criteria
-    if !is_valid_id(&receipt.receiver_id) && !is_valid_id(&receipt.predecessor_id) {
-        return;
-    }
+    // Note: Filtering is now done in the shard processor to enable cross-referencing 
+    // between receipt actions and execution outcomes
 
     let signer_account_id = action_receipt.signer_id.clone();
     let signer_public_key = if let Some(pk) = &action_receipt.signer_public_key {
