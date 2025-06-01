@@ -19,50 +19,12 @@ binaries:
     file: target/wasm32-unknown-unknown/release/near_substreams_sql_sink.wasm
 
 modules:
-  - name: store_blocks
-    kind: store
-    initialBlock: 162542069 # May 2024 
-    updatePolicy: set
-    valueType: proto:near.entities.v1.Block
-    inputs:
-      - source: sf.near.type.v1.Block
-
-  - name: store_receipts
-    kind: store
-    initialBlock: 162542069 # May 2024 
-    updatePolicy: set
-    valueType: proto:near.entities.v1.Receipt
-    inputs:
-      - source: sf.near.type.v1.Block
-
-  - name: store_receipt_actions
-    kind: store
-    initialBlock: 162542069 # May 2024 
-    updatePolicy: set
-    valueType: proto:near.entities.v1.ReceiptAction
-    inputs:
-      - source: sf.near.type.v1.Block
-
-  - name: store_execution_outcomes
-    kind: store
-    initialBlock: 162542069 # May 2024 
-    updatePolicy: set
-    valueType: proto:near.entities.v1.ExecutionOutcome
-    inputs:
-      - source: sf.near.type.v1.Block
-
   - name: db_out
     kind: map
     initialBlock: 162542069 # May 2024 
+    # initialBlock: 198570538 # Receipt Actions Example Block 
     inputs:
-      - store: store_blocks
-        mode: deltas
-      - store: store_receipts
-        mode: deltas
-      - store: store_receipt_actions
-        mode: deltas
-      - store: store_execution_outcomes
-        mode: deltas
+      - source: sf.near.type.v1.Block
     output:
       type: proto:sf.substreams.sink.database.v1.DatabaseChanges
 
