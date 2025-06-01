@@ -13,12 +13,12 @@ pub fn transform_blocks_deltas(
             DeltaOperation::Create => {
                 push_create_block(changes, &delta.key, delta.ordinal, &delta.new_value);
             }
-            DeltaOperation::Update => {
-                push_create_block(changes, &delta.key, delta.ordinal, &delta.new_value);
-            }
-            DeltaOperation::Delete => {
-                push_delete_block(changes, &delta.key, delta.ordinal);
-            }
+            // DeltaOperation::Update => {
+            //     push_create_block(changes, &delta.key, delta.ordinal, &delta.new_value);
+            // }
+            // DeltaOperation::Delete => {
+            //     push_delete_block(changes, &delta.key, delta.ordinal);
+            // }
             _ => {}
         }
     }

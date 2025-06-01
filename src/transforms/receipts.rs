@@ -12,12 +12,12 @@ pub fn transform_receipts_deltas(
             DeltaOperation::Create => {
                 push_create_receipt(changes, &delta.key, delta.ordinal, &delta.new_value);
             }
-            DeltaOperation::Update => {
-                push_create_receipt(changes, &delta.key, delta.ordinal, &delta.new_value);
-            }
-            DeltaOperation::Delete => {
-                push_delete_receipt(changes, &delta.key, delta.ordinal);
-            }
+            // DeltaOperation::Update => {
+            //     push_create_receipt(changes, &delta.key, delta.ordinal, &delta.new_value);
+            // }
+            // DeltaOperation::Delete => {
+            //     push_delete_receipt(changes, &delta.key, delta.ordinal);
+            // }
             _ => {}
         }
     }

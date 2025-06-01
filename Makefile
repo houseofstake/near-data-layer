@@ -13,7 +13,7 @@ setup_sink:
 	substreams-sink-sql setup $(DSN) ./sink/substreams.dev.yaml
 
 run_sink:
-	RUST_LOG=debug substreams-sink-sql run $(DSN) sink/substreams.dev.yaml --endpoint $(ENDPOINT) --on-module-hash-mistmatch=ignore
+	RUST_LOG=debug substreams-sink-sql run $(DSN) sink/substreams.dev.yaml --endpoint $(ENDPOINT) --batch-block-flush-interval=20000 --batch-row-flush-interval=0
 
 clean:
 	cargo clean

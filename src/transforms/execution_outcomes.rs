@@ -13,12 +13,12 @@ pub fn transform_execution_outcomes_deltas(
             DeltaOperation::Create => {
                 push_create_execution_outcome(changes, &delta.key, delta.ordinal, &delta.new_value);
             }
-            DeltaOperation::Update => {
-                push_create_execution_outcome(changes, &delta.key, delta.ordinal, &delta.new_value);
-            }
-            DeltaOperation::Delete => {
-                push_delete_execution_outcome(changes, &delta.key, delta.ordinal);
-            }
+            // DeltaOperation::Update => {
+            //     push_create_execution_outcome(changes, &delta.key, delta.ordinal, &delta.new_value);
+            // }
+            // DeltaOperation::Delete => {
+            //     push_delete_execution_outcome(changes, &delta.key, delta.ordinal);
+            // }
             _ => {}
         }
     }
