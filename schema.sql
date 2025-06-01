@@ -40,17 +40,20 @@ CREATE TABLE IF NOT EXISTS blocks (
 --     PRIMARY KEY (chunk_hash)
 -- );
 
-CREATE TABLE IF NOT EXISTS receipts (
-    height BIGINT NOT NULL,
-    block_hash TEXT NOT NULL,
-    chunk_hash TEXT NOT NULL,
-    receipt_id TEXT NOT NULL,
-    predecessor_id TEXT NOT NULL,
-    receiver_id TEXT NOT NULL,
-    receipt_kind TEXT NOT NULL,
-    author TEXT NOT NULL,
-    PRIMARY KEY (receipt_id)
-);
+-- DEPRECATED: Receipts table is no longer needed
+-- Keeping schema in case we need it in the future
+
+-- CREATE TABLE IF NOT EXISTS receipts (
+--     height BIGINT NOT NULL,
+--     block_hash TEXT NOT NULL,
+--     chunk_hash TEXT NOT NULL,
+--     receipt_id TEXT NOT NULL,
+--     predecessor_id TEXT NOT NULL,
+--     receiver_id TEXT NOT NULL,
+--     receipt_kind TEXT NOT NULL,
+--     author TEXT NOT NULL,
+--     PRIMARY KEY (receipt_id)
+-- );
 
 CREATE TABLE IF NOT EXISTS receipt_actions (
     id TEXT PRIMARY KEY,
