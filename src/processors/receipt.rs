@@ -11,6 +11,7 @@ pub fn process_receipt(
     shard: &IndexerShard,
     receipt_id: &str,
     author: &str,
+    transaction_hash: &str,
 ) {
     let receipt_entity = ReceiptEntity {
         height: header.height,
@@ -33,6 +34,7 @@ pub fn process_receipt(
             None => "Unknown".to_string(),
         },
         author: author.to_string(),
+        transaction_hash: transaction_hash.to_string(),
     };
 
     let key = format!("{}-{}", header.height, receipt_id);

@@ -42,6 +42,7 @@ message Receipt {
   string receiver_id = 6;
   string receipt_kind = 7;
   string author = 8;
+  string transaction_hash = 9;
 }
 
 message Transaction {

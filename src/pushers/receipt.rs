@@ -16,5 +16,6 @@ pub fn push_create_receipt(
         .change("predecessor_id", (None, &value.predecessor_id))
         .change("receiver_id", (None, &value.receiver_id))
         .change("receipt_kind", (None, &value.receipt_kind))
-        .change("author", (None, &value.author));
+        .change("author", (None, &value.author))
+        .change("transaction_hash", (None, &value.transaction_hash));
 } 

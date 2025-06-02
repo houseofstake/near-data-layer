@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     receiver_id TEXT NOT NULL,
     receipt_kind TEXT NOT NULL,
     author TEXT NOT NULL,
+    transaction_hash TEXT,
     PRIMARY KEY (receipt_id)
 );
 
