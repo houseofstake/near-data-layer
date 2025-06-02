@@ -43,13 +43,6 @@ jobs:
       - name: Push Docker image to Artifact Registry
         run: docker push ${{env.DOCKER_IMAGE}}
 
-      - name: Prune Docker images on Compute Engine VM
-        run: |
-          gcloud compute ssh indexer-vm \
-            --zone=${{env.REGION}}-a \
-            --project=${{env.PROJECT_ID}} \
-            --command="sudo docker image prune --all --force && sudo docker system prune --volumes --force"
-
       - name: Restart Compute Engine VM
         run: |
           gcloud compute instances reset indexer-vm \
