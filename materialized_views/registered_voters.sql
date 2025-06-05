@@ -153,6 +153,7 @@ SELECT
  	--Voting Power
 	, dvp.delegations_voting_power                                      AS voting_power_from_delegations
 	, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
+	, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS current_voting_power
  	, ivp.initial_voting_power
  	, pp.proposal_participation_rate
 
