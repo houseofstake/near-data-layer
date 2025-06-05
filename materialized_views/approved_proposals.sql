@@ -33,10 +33,10 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.action_kind = 'FunctionCall'
     	AND ra.method_name = 'approve_proposal'
-    	AND ra.receiver_id IN (
-    		'v.r-1745564650.testnet'      --veNEAR contract
-    		, 'vote.r-1745564650.testnet' --Voting contract
-    		)
+    	AND ra.receiver_id IN (           --House of Stake contracts
+ 			'v.r-1748895584.testnet'      --veNEAR contract 
+ 			, 'vote.r-1748895584.testnet' --Voting contract 
+ 			)
   	ORDER BY block_height DESC
  )
  SELECT
@@ -59,7 +59,7 @@ WITH execution_outcomes_prep AS (
  ;
 
 --Create the unique index for the view 
- CREATE UNIQUE INDEX approved_proposals_id_idx ON approved_proposals (id);
+ CREATE UNIQUE INDEX idx_pproved_proposals_id ON approved_proposals (id);
 
 --Create the cron schedule
 SELECT cron.schedule(
