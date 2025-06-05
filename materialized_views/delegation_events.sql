@@ -69,6 +69,7 @@ SELECT
 	--Block Data 
 	, ra.block_height
  	, base58_encode(ra.block_hash) AS block_hash
+    , 'test' as test_column
  FROM delegate_undelegate_events AS ra
  LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  	ON TRUE
