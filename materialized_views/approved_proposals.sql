@@ -36,6 +36,8 @@ WITH execution_outcomes_prep AS (
     	AND ra.receiver_id IN (
     		'v.r-1745564650.testnet'      --veNEAR contract
     		, 'vote.r-1745564650.testnet' --Voting contract
+		, 'v.r-1748895584.testnet' -- v0.0.2 veNEAR contract
+		, 'vote.r-1748895584.testnet' -- v0.0.2 Voting contract
     		)
   	ORDER BY block_height DESC
  )
