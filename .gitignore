@@ -3,3 +3,7 @@
 Cargo.lock
 .env
 devel/
+
+# GCP Service Account Keys
+*-key.json
+service-account*.json

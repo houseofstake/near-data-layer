@@ -5,7 +5,7 @@
  
  Each deploy_lockup action is associated with: 
    1. A registered voter ID                                           (The voter account; eg. lighttea2007.testnet) 
-   2. The related House of Stake Contract                             (veNEAR contract address, v.r-1745564650.testnet)
+   2. The related House of Stake Contract                             (veNEAR contract address, v.{{ venear_contract }})
    3. The timestamp at which the voter registration action occurred 
    4. The block-related data for this deploy_lockup action            (Block hash/id, block height) 
    5. The registerd voter's current voting power                      (Sourced from the execution_outcomes.logs value associated with the voter account's latest on_lockup_update event from receipt_actions)  
