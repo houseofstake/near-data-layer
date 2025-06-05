@@ -24,7 +24,7 @@ ORDER BY 2 ASC, 3 ASC
 WITH DATA;
 
 --Create the unique index for the view 
-CREATE UNIQUE INDEX proposal_non_voters_id_idx ON proposal_non_voters (id);
+CREATE UNIQUE INDEX idx_proposal_non_voters_id ON proposal_non_voters (id);
 
 --Create the cron schedule
 SELECT cron.schedule(

@@ -77,7 +77,7 @@ SELECT
 ;
 
 --Create the unique index for the view 
-CREATE UNIQUE INDEX delegation_events_id_idx ON delegation_events (id);
+CREATE UNIQUE INDEX idx_delegation_events_id ON delegation_events (id);
 
 --Create the cron schedule
 SELECT cron.schedule(

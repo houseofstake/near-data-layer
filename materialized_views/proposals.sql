@@ -157,7 +157,7 @@ WITH DATA
 ; 
 
 --Create the unique index for the view 
-CREATE UNIQUE INDEX proposals_id_idx ON proposals (id);
+CREATE UNIQUE INDEX idx_proposals_id ON proposals (id);
 
 --Create the cron schedule
 SELECT cron.schedule(

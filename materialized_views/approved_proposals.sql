@@ -59,7 +59,7 @@ WITH execution_outcomes_prep AS (
  ;
 
 --Create the unique index for the view 
- CREATE UNIQUE INDEX approved_proposals_id_idx ON approved_proposals (id);
+ CREATE UNIQUE INDEX idx_pproved_proposals_id ON approved_proposals (id);
 
 --Create the cron schedule
 SELECT cron.schedule(
