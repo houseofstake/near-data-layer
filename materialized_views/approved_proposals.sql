@@ -13,48 +13,48 @@
 --Create the materialized view
 CREATE MATERIALIZED VIEW approved_proposals AS
 WITH execution_outcomes_prep AS (
-	SELECT
-		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
-		, status
-		, logs
-	FROM execution_outcomes
+    SELECT
+        SPLIT_PART(receipt_id, '-', 2) AS receipt_id
+        , status
+        , logs
+    FROM execution_outcomes
 )
 , approve_proposal_action_prep AS (
- 	SELECT
-    	decode(ra.args_base64, 'base64') AS args
-    	, eo.status
-    	, eo.logs
-    	, base58_encode(ra.receipt_id) AS encoded_receipt_id
-    	, ra.*
-  	FROM receipt_actions AS ra
-  	INNER JOIN execution_outcomes_prep AS eo
- 		ON ra.receipt_id = eo.receipt_id
-	 	AND eo.status = 'SuccessReceiptId'
-  	WHERE
-    	ra.action_kind = 'FunctionCall'
-    	AND ra.method_name = 'approve_proposal'
-    	AND ra.receiver_id IN (
-    		'v.r-1745564650.testnet'      --veNEAR contract
-    		, 'vote.r-1745564650.testnet' --Voting contract
-		, 'v.r-1748895584.testnet' -- v0.0.2 veNEAR contract
-		, 'vote.r-1748895584.testnet' -- v0.0.2 Voting contract
-    		)
-  	ORDER BY block_height DESC
+     SELECT
+        decode(ra.args_base64, 'base64') AS args
+        , eo.status
+        , eo.logs
+        , base58_encode(ra.receipt_id) AS encoded_receipt_id
+        , ra.*
+      FROM receipt_actions AS ra
+      INNER JOIN execution_outcomes_prep AS eo
+         ON ra.receipt_id = eo.receipt_id
+         AND eo.status = 'SuccessReceiptId'
+      WHERE
+        ra.action_kind = 'FunctionCall'
+        AND ra.method_name = 'approve_proposal'
+        AND ra.receiver_id IN (
+            'v.r-1745564650.testnet'      --veNEAR contract
+            , 'vote.r-1745564650.testnet' --Voting contract
+            , 'v.r-1748895584.testnet' -- v0.0.2 veNEAR contract
+            , 'vote.r-1748895584.testnet' -- v0.0.2 Voting contract
+        )
+      ORDER BY block_height DESC
  )
  SELECT
- 	base58_encode(ra.receipt_id) AS id
- 	, base58_encode(ra.receipt_id) AS receipt_id
- 	, DATE(ra.block_timestamp)     AS proposal_approved_date
- 	, ra.block_timestamp           AS proposal_approved_at
+     base58_encode(ra.receipt_id) AS id
+     , base58_encode(ra.receipt_id) AS receipt_id
+     , DATE(ra.block_timestamp)     AS proposal_approved_date
+     , ra.block_timestamp           AS proposal_approved_at
 
- 	--Proposal Details
- 	, ra.receiver_id           												   AS hos_contract_address
- 	, (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric           AS proposal_id
- 	, ra.signer_account_id     												   AS proposal_approver_id
+     --Proposal Details
+     , ra.receiver_id           												   AS hos_contract_address
+     , (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric           AS proposal_id
+     , ra.signer_account_id     												   AS proposal_approver_id
 
- 	--Block details
- 	, ra.block_hash
- 	, ra.block_height
+     --Block details
+     , ra.block_hash
+     , ra.block_height
  FROM approve_proposal_action_prep AS ra
  ORDER BY block_timestamp DESC
  WITH DATA
