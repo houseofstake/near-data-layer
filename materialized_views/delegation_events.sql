@@ -69,7 +69,6 @@ SELECT
 	--Block Data 
 	, ra.block_height
  	, base58_encode(ra.block_hash) AS block_hash
-    , 'test' as test_column
  FROM delegate_undelegate_events AS ra
  LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  	ON TRUE
@@ -87,5 +86,5 @@ SELECT cron.schedule(
     $$REFRESH MATERIALIZED VIEW CONCURRENTLY delegation_events;$$
 );
 
---Pause the cron schedule 
-SELECT cron.alter_job(7, active := false);
+--Activate the cron schedule 
+SELECT cron.alter_job(7, active := true);

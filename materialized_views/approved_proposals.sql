@@ -68,5 +68,5 @@ SELECT cron.schedule(
     $$REFRESH MATERIALIZED VIEW CONCURRENTLY approved_proposals;$$
 );
 
---Pause the cron schedule 
-SELECT cron.alter_job(9, active := false);
+--Activate the cron schedule 
+SELECT cron.alter_job(9, active := true);
