@@ -51,7 +51,7 @@ execution_outcomes_prep AS (
 )
 
 /* Sourcing Voting Power per Registered Voter */
-, initial_voting_power AS (
+, initial_voting_power_from_locks_unlocks AS (
   	SELECT
   		ra.block_timestamp
   		, args_decoded
@@ -65,7 +65,7 @@ execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'storage_deposit'
 )
-, current_voting_power AS (
+, current_voting_power_from_locks_unlocks AS (
 	SELECT
 		ra.block_timestamp
 		, base58_encode(ra.receipt_id) 																	    			AS receipt_id
@@ -80,6 +80,24 @@ execution_outcomes_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'on_lockup_update'
+)
+, delegations_voting_power AS ( --Total voting power delegated to your account, as a registered voter 
+	SELECT 
+ 		delegatee_id 
+ 		, SUM(near_amount) AS delegations_voting_power 
+ 	FROM delegation_events
+ 	WHERE 
+ 		delegatee_id = owner_id 
+ 		AND delegate_event = 'ft_mint'
+ 	GROUP BY 1
+)
+, actively_delegating_accounts AS (
+	SELECT DISTINCT 
+		delegator_id 
+	FROM delegation_events 
+	WHERE 
+		is_latest_delegator_event = TRUE 
+		AND delegate_method = 'delegate_all'
 )
 
 /* Sourcing Proposal Participation (From the 10 most recently approved proposals) */
@@ -125,10 +143,16 @@ SELECT
  	, CASE
 	 	WHEN cvp.row_num IS NULL THEN FALSE
 	 	ELSE TRUE
-	 	END AS has_voter_locked_unlocked_near
+	 	END AS has_locked_unlocked_near
+	, CASE 
+ 		WHEN ad.delegator_id IS NULL 
+ 		THEN FALSE 
+ 		ELSE TRUE 
+ 		END AS is_actively_delegating --TRUE if the latest delegation event for this account = 'delegate_all'
 
  	--Voting Power
-	, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS current_voting_power
+	, dvp.delegations_voting_power                                      AS voting_power_from_delegations
+	, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
  	, ivp.initial_voting_power
  	, pp.proposal_participation_rate
 
@@ -137,12 +161,16 @@ SELECT
  	, base58_encode(ra.block_hash) AS block_hash
 
 FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
-LEFT JOIN current_voting_power AS cvp 					    --Sourced from the voter's most recent on_lockup_update event
+LEFT JOIN current_voting_power_from_locks_unlocks AS cvp 	--Sourced from the voter's most recent on_lockup_update event
 	ON ra.signer_account_id = cvp.registered_voter_id
-LEFT JOIN initial_voting_power AS ivp 						--Sourced from the voter's storage_deposit event associated with the vote registration action
+LEFT JOIN initial_voting_power_from_locks_unlocks AS ivp 	--Sourced from the voter's storage_deposit event associated with the vote registration action
 	ON ra.signer_account_id = ivp.registered_voter_id
 LEFT JOIN proposal_participation AS pp
 	ON pp.registered_voter_id = ra.signer_account_id
+LEFT JOIN delegations_voting_power AS dvp 
+	ON ra.signer_account_id = dvp.delegatee_id
+LEFT JOIN actively_delegating_accounts AS ad 
+	ON ra.signer_account_id = ad.delegator_id 
 WHERE
 	COALESCE(cvp.row_num, 0) IN (0,1)
 ORDER BY ra.block_timestamp DESC

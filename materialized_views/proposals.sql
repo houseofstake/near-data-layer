@@ -31,8 +31,8 @@ WITH execution_outcomes_prep AS (
  	WHERE
  		ra.action_kind = 'FunctionCall'
  		AND ra.receiver_id IN (           --House of Stake contracts
- 			'v.r-1745564650.testnet'      --veNEAR contract
- 			, 'vote.r-1745564650.testnet' --Voting contract
+ 			'v.r-1748895584.testnet'      --veNEAR contract 
+ 			, 'vote.r-1748895584.testnet' --Voting contract 
  			)
 )
 , create_proposal AS ( 
@@ -95,6 +95,7 @@ WITH execution_outcomes_prep AS (
  		proposal_id 
  		, COUNT(DISTINCT voter_id) AS num_distinct_voters 
  		, STRING_AGG(DISTINCT voter_id, ', ' ORDER BY voter_id ASC)	AS listagg_distinct_voters 
+		, SUM(CASE WHEN vote_option = 0 THEN 1 ELSE 0 END) AS num_for_votes 
  		, SUM(CASE WHEN vote_option = 1 THEN 1 ELSE 0 END) AS num_against_votes 
  	FROM proposal_voting_history 
  	GROUP BY 1

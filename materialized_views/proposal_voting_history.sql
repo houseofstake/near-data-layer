@@ -34,9 +34,9 @@ WITH execution_outcomes_prep AS (
   	WHERE 
     	ra.action_kind = 'FunctionCall'
     	AND ra.receiver_id IN (           --House of Stake contracts
-    		'v.r-1745564650.testnet'      --veNEAR contract 
-    		, 'vote.r-1745564650.testnet' --Voting contract
-    		) 
+ 			'v.r-1748895584.testnet'      --veNEAR contract 
+ 			, 'vote.r-1748895584.testnet' --Voting contract 
+ 			) 
 )
 , proposal_metadata AS (
 	SELECT 
