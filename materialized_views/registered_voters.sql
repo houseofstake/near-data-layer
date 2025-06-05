@@ -37,8 +37,8 @@ execution_outcomes_prep AS (
 	WHERE
 		ra.action_kind = 'FunctionCall'
 		AND ra.receiver_id IN (           --House of Stake contracts
-    		'v.r-1745564650.testnet'      --veNEAR contract
-    		, 'vote.r-1745564650.testnet' --Voting contract
+    		'v.{{ venear_contract }}',     --veNEAR contract
+    		'vote.{{ voting_contract }}'   --Voting contract
     		)
 )
 , registered_voters_prep AS (
