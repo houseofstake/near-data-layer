@@ -21,22 +21,24 @@ WITH execution_outcomes_prep AS (
 )
 , approve_proposal_action_prep AS (
  	SELECT
-    	decode(ra.args_base64, 'base64') AS args
-    	, eo.status
-    	, eo.logs
-    	, base58_encode(ra.receipt_id) AS encoded_receipt_id
-    	, ra.*
+		decode(ra.args_base64, 'base64') AS args
+		, eo.status
+		, eo.logs
+		, base58_encode(ra.receipt_id) AS encoded_receipt_id
+		, ra.*
   	FROM receipt_actions AS ra
   	INNER JOIN execution_outcomes_prep AS eo
  		ON ra.receipt_id = eo.receipt_id
 	 	AND eo.status = 'SuccessReceiptId'
   	WHERE
-    	ra.action_kind = 'FunctionCall'
-    	AND ra.method_name = 'approve_proposal'
-    	AND ra.receiver_id IN (
-    		'v.r-1745564650.testnet'      --veNEAR contract
-    		, 'vote.r-1745564650.testnet' --Voting contract
-    		)
+		ra.action_kind = 'FunctionCall'
+		AND ra.method_name = 'approve_proposal'
+		AND ra.receiver_id IN (
+			'v.r-1745564650.testnet'      --veNEAR contract
+			, 'vote.r-1745564650.testnet' --Voting contract
+			, 'v.r-1748895584.testnet' -- v0.0.2 veNEAR contract
+			, 'vote.r-1748895584.testnet' -- v0.0.2 Voting contract
+		)
   	ORDER BY block_height DESC
  )
  SELECT
@@ -63,9 +65,9 @@ WITH execution_outcomes_prep AS (
 
 --Create the cron schedule
 SELECT cron.schedule(
-    'refresh_approved_proposals', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY approved_proposals;$$
+	'refresh_approved_proposals',
+	'* * * * *',                   -- every minute
+	$$REFRESH MATERIALIZED VIEW CONCURRENTLY approved_proposals;$$
 );
 
 --Pause the cron schedule 
