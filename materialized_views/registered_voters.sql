@@ -37,9 +37,9 @@ execution_outcomes_prep AS (
 	WHERE
 		ra.action_kind = 'FunctionCall'
 		AND ra.receiver_id IN (           --House of Stake contracts
-    		'v.r-1745564650.testnet'      --veNEAR contract
-    		, 'vote.r-1745564650.testnet' --Voting contract
-    		)
+ 			'v.r-1748895584.testnet'      --veNEAR contract 
+ 			, 'vote.r-1748895584.testnet' --Voting contract 
+ 			) 
 )
 , registered_voters_prep AS (
   	SELECT
@@ -129,51 +129,73 @@ execution_outcomes_prep AS (
 	FROM registered_voter_proposal_voting_history
 	GROUP BY 1
 )
-
+, final AS (
 /* Registered Voters + Current Voting Power */
-SELECT
-	base58_encode(ra.receipt_id)   AS id
- 	, base58_encode(ra.receipt_id) AS receipt_id
- 	, DATE(ra.block_timestamp) 	   AS registered_date
- 	, ra.block_timestamp      	   AS registered_at
+	SELECT
+		MD5(base58_encode(ra.receipt_id)) AS id
+ 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		, DATE(ra.block_timestamp) 	   AS registered_date
+ 		, ra.block_timestamp      	   AS registered_at
 
- 	--Deploy Lockup Details
- 	, ra.signer_account_id         AS registered_voter_id
- 	, ra.receiver_id       		   AS hos_contract_address
- 	, CASE
-	 	WHEN cvp.row_num IS NULL THEN FALSE
-	 	ELSE TRUE
-	 	END AS has_locked_unlocked_near
+ 		--Deploy Lockup Details
+ 		, ra.signer_account_id         AS registered_voter_id
+ 		, ra.receiver_id       		   AS hos_contract_address
+ 		, CASE
+	 		WHEN cvp.row_num IS NULL THEN FALSE
+	 		ELSE TRUE
+	 		END AS has_locked_unlocked_near
+		, CASE 
+ 			WHEN ad.delegator_id IS NULL 
+ 			THEN FALSE 
+ 			ELSE TRUE 
+ 			END AS is_actively_delegating --TRUE if the latest delegation event for this account = 'delegate_all'
+
+ 		--Voting Power
+		, dvp.delegations_voting_power                                      AS voting_power_from_delegations
+		, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
+ 		, ivp.initial_voting_power
+ 		, pp.proposal_participation_rate
+
+ 		--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)
+ 		, ra.block_height
+ 		, base58_encode(ra.block_hash) AS block_hash
+
+	FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
+	LEFT JOIN current_voting_power_from_locks_unlocks AS cvp 	--Sourced from the voter's most recent on_lockup_update event
+		ON ra.signer_account_id = cvp.registered_voter_id
+	LEFT JOIN initial_voting_power_from_locks_unlocks AS ivp 	--Sourced from the voter's storage_deposit event associated with the vote registration action
+		ON ra.signer_account_id = ivp.registered_voter_id
+	LEFT JOIN proposal_participation AS pp
+		ON pp.registered_voter_id = ra.signer_account_id
+	LEFT JOIN delegations_voting_power AS dvp 
+		ON ra.signer_account_id = dvp.delegatee_id
+	LEFT JOIN actively_delegating_accounts AS ad 
+		ON ra.signer_account_id = ad.delegator_id 
+	WHERE
+		COALESCE(cvp.row_num, 0) IN (0,1)
+	ORDER BY ra.block_timestamp DESC
+)
+SELECT 
+	id
+	, receipt_id
+	, registered_date
+	, registered_at
+	, registered_voter_id
+	, hos_contract_address
+	, has_locked_unlocked_near
+	, is_actively_delegating
+	, voting_power_from_delegations
+	, voting_power_from_locks_unlocks
+	, initial_voting_power
 	, CASE 
- 		WHEN ad.delegator_id IS NULL 
- 		THEN FALSE 
- 		ELSE TRUE 
- 		END AS is_actively_delegating --TRUE if the latest delegation event for this account = 'delegate_all'
-
- 	--Voting Power
-	, dvp.delegations_voting_power                                      AS voting_power_from_delegations
-	, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
- 	, ivp.initial_voting_power
- 	, pp.proposal_participation_rate
-
- 	--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)
- 	, ra.block_height
- 	, base58_encode(ra.block_hash) AS block_hash
-
-FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
-LEFT JOIN current_voting_power_from_locks_unlocks AS cvp 	--Sourced from the voter's most recent on_lockup_update event
-	ON ra.signer_account_id = cvp.registered_voter_id
-LEFT JOIN initial_voting_power_from_locks_unlocks AS ivp 	--Sourced from the voter's storage_deposit event associated with the vote registration action
-	ON ra.signer_account_id = ivp.registered_voter_id
-LEFT JOIN proposal_participation AS pp
-	ON pp.registered_voter_id = ra.signer_account_id
-LEFT JOIN delegations_voting_power AS dvp 
-	ON ra.signer_account_id = dvp.delegatee_id
-LEFT JOIN actively_delegating_accounts AS ad 
-	ON ra.signer_account_id = ad.delegator_id 
-WHERE
-	COALESCE(cvp.row_num, 0) IN (0,1)
-ORDER BY ra.block_timestamp DESC
+		WHEN is_actively_delegating = TRUE THEN voting_power_from_delegations 
+		WHEN is_actively_delegating = FALSE THEN (initial_voting_power + voting_power_from_delegations + voting_power_from_locks_unlocks)
+		ELSE 0
+		END AS current_voting_power
+	, proposal_participation_rate
+	, block_height
+	, block_hash
+FROM final 
 WITH DATA
 ;
 
