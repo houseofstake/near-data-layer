@@ -151,9 +151,9 @@ execution_outcomes_prep AS (
  			END AS is_actively_delegating --TRUE if the latest delegation event for this account = 'delegate_all'
 
  		--Voting Power
-		, dvp.delegations_voting_power                                      AS voting_power_from_delegations
+		, COALESCE(dvp.delegations_voting_power, 0)                         AS voting_power_from_delegations
 		, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
- 		, ivp.initial_voting_power
+ 		, COALESCE(ivp.initial_voting_power, 0)                             AS initial_voting_power
  		, pp.proposal_participation_rate
 
  		--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)
