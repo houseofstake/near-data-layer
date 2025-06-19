@@ -4,6 +4,7 @@ use crate::pb::near::entities::v1::ExecutionOutcome as ExecutionOutcomeEntity;
 
 use crate::pushers::push_create_execution_outcome;
 use crate::processors::utils::bytes_to_string;
+use crate::processors::process_execution_outcome_result;
 
 pub fn process_execution_outcome(
     changes: &mut DatabaseChanges,
@@ -61,5 +62,8 @@ pub fn process_execution_outcome(
 
         let key = format!("{}-{}", header.height, receipt_id);
         push_create_execution_outcome(changes, &key, 0, &execution_outcome_entity);
+
+        // Also process execution outcome results for successful function calls
+        process_execution_outcome_result(changes, execution_outcome, header, shard, receipt_id);
     }
 } 
