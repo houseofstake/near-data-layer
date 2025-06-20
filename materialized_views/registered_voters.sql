@@ -13,8 +13,8 @@
    7. The registered voter's proposal participation rate              (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract; always a percentage out of 10)
 */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW registered_voters AS
+--Create the view
+CREATE VIEW registered_voters AS
 WITH
 /* Sourcing Registered Voters */
 execution_outcomes_prep AS (
@@ -81,23 +81,27 @@ execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'on_lockup_update'
 )
-, delegations_voting_power AS ( --Total voting power delegated to your account, as a registered voter 
-	SELECT 
- 		delegatee_id 
- 		, SUM(near_amount) AS delegations_voting_power 
- 	FROM delegation_events
- 	WHERE 
- 		delegatee_id = owner_id 
- 		AND delegate_event = 'ft_mint'
- 	GROUP BY 1
-)
 , actively_delegating_accounts AS (
+  --List of accounts that are actively delegating right now & the accounts to which they are delegating ALL their voting power.
+  --Note: Every time you delegate, you are delegating away ALL your power by default. However, this excludes amounts that are being delegated to you simultaneously; see below cte).
+  --This info is important for calculating the total voting power from delegations on any given registered voter; it's the sum of voting power from others who are actively delgating to them! 
 	SELECT DISTINCT 
 		delegator_id 
+		, delegatee_id
+		, near_amount
 	FROM delegation_events 
 	WHERE 
 		is_latest_delegator_event = TRUE 
 		AND delegate_method = 'delegate_all'
+		AND delegate_event = 'ft_mint'
+)
+, delegations_voting_power AS ( 
+  --Total voting power delegated to your account, as a registered voter 
+	SELECT 
+ 		delegatee_id 
+ 		, SUM(near_amount) AS delegations_voting_power 
+ 	FROM actively_delegating_accounts
+ 	GROUP BY 1
 )
 
 /* Sourcing Proposal Participation (From the 10 most recently approved proposals) */
@@ -162,9 +166,10 @@ execution_outcomes_prep AS (
 
 	FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
 	LEFT JOIN current_voting_power_from_locks_unlocks AS cvp 	--Sourced from the voter's most recent on_lockup_update event
-	ON ra.signer_account_id = cvp.registered_voter_id
+		ON ra.signer_account_id = cvp.registered_voter_id
+		AND cvp.row_num = 1
 	LEFT JOIN initial_voting_power_from_locks_unlocks AS ivp 	--Sourced from the voter's storage_deposit event associated with the vote registration action
-	ON ra.signer_account_id = ivp.registered_voter_id
+		ON ra.signer_account_id = ivp.registered_voter_id
 	LEFT JOIN proposal_participation AS pp
 		ON pp.registered_voter_id = ra.signer_account_id
 	LEFT JOIN delegations_voting_power AS dvp 
@@ -196,18 +201,17 @@ SELECT
 	, block_height
 	, block_hash
 FROM final 
-WITH DATA
 ;
 
---Create the unique index for the view 	
-CREATE UNIQUE INDEX idx_registered_voters_id ON registered_voters (id);
+-- --Create the unique index for the view 	
+-- CREATE UNIQUE INDEX idx_registered_voters_id ON registered_voters (id);
 
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_registered_voters', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY registered_voters;$$
-);
+-- --Create the cron schedule
+-- SELECT cron.schedule(
+--     'refresh_registered_voters', 
+--     '* * * * *',                   -- every minute
+--     $$REFRESH MATERIALIZED VIEW CONCURRENTLY registered_voters;$$
+-- );
 
---Activate the cron schedule 
-SELECT cron.alter_job(11, active := true);
+-- --Activate the cron schedule 
+-- SELECT cron.alter_job(11, active := true);

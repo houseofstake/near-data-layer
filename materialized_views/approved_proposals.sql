@@ -10,8 +10,8 @@
    4. The block-related data for this approve_proposal action             (Block hash/id, block height) 
 */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW approved_proposals AS
+--Create the view
+CREATE VIEW approved_proposals AS
 WITH execution_outcomes_prep AS (
 	SELECT
 		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
@@ -55,18 +55,17 @@ WITH execution_outcomes_prep AS (
  	, ra.block_height
  FROM approve_proposal_action_prep AS ra
  ORDER BY block_timestamp DESC
- WITH DATA
  ;
 
---Create the unique index for the view 
- CREATE UNIQUE INDEX idx_approved_proposals_id ON approved_proposals (id);
+-- --Create the unique index for the view 
+--  CREATE UNIQUE INDEX idx_approved_proposals_id ON approved_proposals (id);
 
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_approved_proposals', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY approved_proposals;$$
-);
+-- --Create the cron schedule
+-- SELECT cron.schedule(
+--     'refresh_approved_proposals', 
+--     '* * * * *',                   -- every minute
+--     $$REFRESH MATERIALIZED VIEW CONCURRENTLY approved_proposals;$$
+-- );
 
---Activate the cron schedule 
-SELECT cron.alter_job(9, active := true);
+-- --Activate the cron schedule 
+-- SELECT cron.alter_job(9, active := true);
