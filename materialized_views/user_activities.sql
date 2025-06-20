@@ -121,6 +121,7 @@ WITH execution_outcomes_prep AS (
     CROSS JOIN LATERAL UNNEST(ra.logs) AS log
     WHERE 
     	ra.method_name = 'on_lockup_update'
+        AND ra.receiver_id IN (        
  			'v.{{ venear_contract }}'      
  			, 'vote.{{ voting_contract }}' 
  			)
