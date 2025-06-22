@@ -53,7 +53,7 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, ra.predecessor_id AS hos_contract_address 
     	, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'lockup_deposit')::NUMERIC AS near_amount 
-    	, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --ALWAYS NULL 
+    	, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --Field exists in the logs, but is ALWAYS NULL  
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
   	FROM receipt_actions_prep AS ra
@@ -157,7 +157,7 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id 
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --there ARE NO logs FOR this event_type
+		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
   	FROM receipt_actions_prep AS ra
@@ -183,7 +183,7 @@ WITH execution_outcomes_prep AS (
     	, COALESCE(REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id', ra.signer_account_id) AS account_id
     	, ra.receiver_id AS hos_contract_address 
 	    , (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'amount')::NUMERIC AS near_amount
-	    , (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --this does NOT exist FOR delegate_all AND undelegate events 
+	    , NULL::NUMERIC AS locked_near_balance --This does NOT exist FOR delegate_all AND undelegate events 
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash 
   	FROM receipt_actions_prep AS ra
@@ -210,8 +210,8 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --there ARE NO logs FOR this event_type
-    	, ra.block_height
+		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
+        , ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
@@ -235,7 +235,7 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance
+		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
   	FROM receipt_actions_prep AS ra
