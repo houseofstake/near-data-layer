@@ -68,7 +68,7 @@ execution_outcomes_prep AS (
 	SELECT
 		ra.block_timestamp
 		, base58_encode(ra.receipt_id) 																	    			AS receipt_id
-		, COALESCE(REPLACE(ra.action_logs[ 1], 'EVENT_JSON:', '')::json->'data'->0->>'account_id', ra.signer_account_id) AS registered_voter_id
+		, COALESCE(REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'account_id', ra.signer_account_id) AS registered_voter_id
 		, (REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC             AS current_voting_power_logs
     	, (convert_from(ra.args_decoded, 'UTF8')::json->'update'->'V1'->>'locked_near_balance')::NUMERIC                AS current_voting_power_args
     	, ra.receiver_id 																								AS hos_contract_address
