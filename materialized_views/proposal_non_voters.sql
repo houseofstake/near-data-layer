@@ -4,8 +4,7 @@
  References the proposals, registered_voters and proposal_voting_history views. 
 */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW proposal_non_voters AS 
+CREATE VIEW proposal_non_voters AS 
 SELECT 
     MD5(CONCAT(p.proposal_id, '_', rv.registered_voter_id)) AS id
     , p.proposal_id
@@ -21,17 +20,4 @@ WHERE NOT EXISTS (
     	AND h.voter_id = rv.registered_voter_id
 )
 ORDER BY 2 ASC, 3 ASC
-WITH DATA;
-
---Create the unique index for the view 
-CREATE UNIQUE INDEX idx_proposal_non_voters_id ON proposal_non_voters (id);
-
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_proposal_non_voters', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY proposal_non_voters;$$
-);
-
---Pause the cron schedule 
-SELECT cron.alter_job(13, active := false);
+;

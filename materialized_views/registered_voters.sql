@@ -13,8 +13,7 @@
    7. The registered voter's proposal participation rate              (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract; always a percentage out of 10)
 */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW registered_voters AS
+CREATE VIEW registered_voters AS
 WITH
 /* Sourcing Registered Voters */
 execution_outcomes_prep AS (
@@ -37,8 +36,8 @@ execution_outcomes_prep AS (
 	WHERE
 		ra.action_kind = 'FunctionCall'
 		AND ra.receiver_id IN (           --House of Stake contracts
-    		'v.r-1745564650.testnet'      --veNEAR contract
-    		, 'vote.r-1745564650.testnet' --Voting contract
+    		'v.r-1748895584.testnet'      --veNEAR contract
+    		, 'vote.r-1748895584.testnet' --Voting contract
     		)
 )
 , registered_voters_prep AS (
@@ -69,7 +68,7 @@ execution_outcomes_prep AS (
 	SELECT
 		ra.block_timestamp
 		, base58_encode(ra.receipt_id) 																	    			AS receipt_id
-		, COALESCE(REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'account_id', ra.signer_account_id) AS registered_voter_id
+		, COALESCE(REPLACE(ra.action_logs[ 1], 'EVENT_JSON:', '')::json->'data'->0->>'account_id', ra.signer_account_id) AS registered_voter_id
 		, (REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC             AS current_voting_power_logs
     	, (convert_from(ra.args_decoded, 'UTF8')::json->'update'->'V1'->>'locked_near_balance')::NUMERIC                AS current_voting_power_args
     	, ra.receiver_id 																								AS hos_contract_address
@@ -81,23 +80,27 @@ execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'on_lockup_update'
 )
-, delegations_voting_power AS ( --Total voting power delegated to your account, as a registered voter 
-	SELECT 
- 		delegatee_id 
- 		, SUM(near_amount) AS delegations_voting_power 
- 	FROM delegation_events
- 	WHERE 
- 		delegatee_id = owner_id 
- 		AND delegate_event = 'ft_mint'
- 	GROUP BY 1
-)
 , actively_delegating_accounts AS (
+  --List of accounts that are actively delegating right now & the accounts to which they are delegating ALL their voting power.
+  --Note: Every time you delegate, you are delegating away ALL your power by default. However, this excludes amounts that are being delegated to you simultaneously; see below cte).
+  --This info is important for calculating the total voting power from delegations on any given registered voter; it's the sum of voting power from others who are actively delgating to them! 
 	SELECT DISTINCT 
 		delegator_id 
-	FROM delegation_events 
+		, delegatee_id
+		, near_amount
+	FROM delegation_events_v2 
 	WHERE 
 		is_latest_delegator_event = TRUE 
 		AND delegate_method = 'delegate_all'
+		AND delegate_event = 'ft_mint'
+)
+, delegations_voting_power AS ( 
+  --Total voting power delegated to your account, as a registered voter 
+	SELECT 
+ 		delegatee_id 
+ 		, SUM(near_amount) AS delegations_voting_power 
+ 	FROM actively_delegating_accounts
+ 	GROUP BY 1
 )
 
 /* Sourcing Proposal Participation (From the 10 most recently approved proposals) */
@@ -129,63 +132,72 @@ execution_outcomes_prep AS (
 	FROM registered_voter_proposal_voting_history
 	GROUP BY 1
 )
-
+, final AS (
 /* Registered Voters + Current Voting Power */
-SELECT
-	base58_encode(ra.receipt_id)   AS id
- 	, base58_encode(ra.receipt_id) AS receipt_id
- 	, DATE(ra.block_timestamp) 	   AS registered_date
- 	, ra.block_timestamp      	   AS registered_at
+	SELECT
+		MD5(base58_encode(ra.receipt_id)) AS id
+ 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		, DATE(ra.block_timestamp) 	   AS registered_date
+ 		, ra.block_timestamp      	   AS registered_at
 
- 	--Deploy Lockup Details
- 	, ra.signer_account_id         AS registered_voter_id
- 	, ra.receiver_id       		   AS hos_contract_address
- 	, CASE
-	 	WHEN cvp.row_num IS NULL THEN FALSE
-	 	ELSE TRUE
-	 	END AS has_locked_unlocked_near
+ 		--Deploy Lockup Details
+ 		, ra.signer_account_id         AS registered_voter_id
+ 		, ra.receiver_id       		   AS hos_contract_address
+ 		, CASE
+	 		WHEN cvp.row_num IS NULL THEN FALSE
+	 		ELSE TRUE
+	 		END AS has_locked_unlocked_near
+		, CASE 
+ 			WHEN ad.delegator_id IS NULL 
+ 			THEN FALSE 
+ 			ELSE TRUE 
+ 			END AS is_actively_delegating --TRUE if the latest delegation event for this account = 'delegate_all'
+
+ 		--Voting Power
+		, COALESCE(dvp.delegations_voting_power, 0)                         AS voting_power_from_delegations
+		, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
+ 		, COALESCE(ivp.initial_voting_power, 0)                             AS initial_voting_power
+ 		, pp.proposal_participation_rate
+
+ 		--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)
+ 		, ra.block_height
+ 		, base58_encode(ra.block_hash) AS block_hash
+
+	FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
+	LEFT JOIN current_voting_power_from_locks_unlocks AS cvp 	--Sourced from the voter's most recent on_lockup_update event
+		ON ra.signer_account_id = cvp.registered_voter_id
+		AND cvp.row_num = 1
+	LEFT JOIN initial_voting_power_from_locks_unlocks AS ivp 	--Sourced from the voter's storage_deposit event associated with the vote registration action
+		ON ra.signer_account_id = ivp.registered_voter_id
+	LEFT JOIN proposal_participation AS pp
+		ON pp.registered_voter_id = ra.signer_account_id
+	LEFT JOIN delegations_voting_power AS dvp 
+		ON ra.signer_account_id = dvp.delegatee_id
+	LEFT JOIN actively_delegating_accounts AS ad 
+		ON ra.signer_account_id = ad.delegator_id 
+	WHERE
+		COALESCE(cvp.row_num, 0) IN (0,1)
+	ORDER BY ra.block_timestamp DESC
+)
+SELECT 
+	id
+	, receipt_id
+	, registered_date
+	, registered_at
+	, registered_voter_id
+	, hos_contract_address
+	, has_locked_unlocked_near
+	, is_actively_delegating
+	, voting_power_from_delegations
+	, voting_power_from_locks_unlocks
+	, initial_voting_power
 	, CASE 
- 		WHEN ad.delegator_id IS NULL 
- 		THEN FALSE 
- 		ELSE TRUE 
- 		END AS is_actively_delegating --TRUE if the latest delegation event for this account = 'delegate_all'
-
- 	--Voting Power
-	, dvp.delegations_voting_power                                      AS voting_power_from_delegations
-	, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
- 	, ivp.initial_voting_power
- 	, pp.proposal_participation_rate
-
- 	--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)
- 	, ra.block_height
- 	, base58_encode(ra.block_hash) AS block_hash
-
-FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
-LEFT JOIN current_voting_power_from_locks_unlocks AS cvp 	--Sourced from the voter's most recent on_lockup_update event
-	ON ra.signer_account_id = cvp.registered_voter_id
-LEFT JOIN initial_voting_power_from_locks_unlocks AS ivp 	--Sourced from the voter's storage_deposit event associated with the vote registration action
-	ON ra.signer_account_id = ivp.registered_voter_id
-LEFT JOIN proposal_participation AS pp
-	ON pp.registered_voter_id = ra.signer_account_id
-LEFT JOIN delegations_voting_power AS dvp 
-	ON ra.signer_account_id = dvp.delegatee_id
-LEFT JOIN actively_delegating_accounts AS ad 
-	ON ra.signer_account_id = ad.delegator_id 
-WHERE
-	COALESCE(cvp.row_num, 0) IN (0,1)
-ORDER BY ra.block_timestamp DESC
-WITH DATA
+		WHEN is_actively_delegating = TRUE THEN voting_power_from_delegations 
+		WHEN is_actively_delegating = FALSE THEN initial_voting_power + voting_power_from_delegations + voting_power_from_locks_unlocks
+		ELSE 0
+		END AS current_voting_power
+	, proposal_participation_rate
+	, block_height
+	, block_hash
+FROM final 
 ;
-
---Create the unique index for the view 	
-CREATE UNIQUE INDEX idx_registered_voters_id ON registered_voters (id);
-
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_registered_voters', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY registered_voters;$$
-);
-
---Pause the cron schedule 
-SELECT cron.alter_job(11, active := false);

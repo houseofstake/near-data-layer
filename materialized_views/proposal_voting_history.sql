@@ -13,8 +13,7 @@
    7. The block-related data for this vote (block hash/id, block height) 
 */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW proposal_voting_history AS
+CREATE VIEW proposal_voting_history AS
 WITH execution_outcomes_prep AS (
 	SELECT 
 		SPLIT_PART(receipt_id, '-', 2) AS receipt_id 
@@ -111,18 +110,4 @@ LEFT JOIN proposal_metadata AS pm
 	ON l.proposal_id = pm.proposal_id
 WHERE 
 	l.row_num = 1
-WITH DATA
 ;
-
---Create the unique index for the view 
-CREATE UNIQUE INDEX idx_proposal_voting_history_id ON proposal_voting_history (id);
-
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_proposal_voting_history', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY proposal_voting_history;$$
-);
-
---Pause the cron schedule 
-SELECT cron.alter_job(8, active := false);

@@ -9,8 +9,7 @@
  5. The block-related data for the create_proposal action (block hash/id, block height) 
  */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW proposals AS 
+CREATE VIEW proposals AS 
 WITH execution_outcomes_prep AS (
  	SELECT
  		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
@@ -153,18 +152,4 @@ WITH execution_outcomes_prep AS (
  LEFT JOIN proposal_votes AS pv 
  	ON ap.proposal_id = pv.proposal_id 
  ORDER BY cp.proposal_created_at ASC
-WITH DATA
 ; 
-
---Create the unique index for the view 
-CREATE UNIQUE INDEX idx_proposals_id ON proposals (id);
-
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_proposals', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY proposals;$$
-);
-
---Pause the cron schedule 
-SELECT cron.alter_job(12, active := false); 
