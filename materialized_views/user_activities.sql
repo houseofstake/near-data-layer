@@ -143,31 +143,6 @@ WITH execution_outcomes_prep AS (
     	, block_hash
     FROM on_lockup_update_prep
 )
----------------------------
---Complete Unlock Process--
----------------------------
-, end_unlock_near AS (
-  	SELECT
-  		base58_encode(ra.receipt_id) AS id 
-  		, base58_encode(ra.receipt_id) AS receipt_id
-  		, ra.block_timestamp AS event_timestamp
-  		, method_name AS event_type 
-  		, ra.method_name 
-  		, ra.event_status
-    	, ra.signer_account_id AS account_id 
-    	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
-    	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
-  	FROM receipt_actions_prep AS ra
-  	WHERE
-    	ra.method_name = 'end_unlock_near'
-		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
- 			)
-)
  -------------------------------
  --Delegations / Undelegations--
  -------------------------------
@@ -255,8 +230,6 @@ WITH execution_outcomes_prep AS (
  	SELECT * FROM lock_near
  		UNION ALL 
  	SELECT * FROM on_lockup_update
- 		UNION ALL 
-	SELECT * FROM end_unlock_near
  		UNION ALL 
  	SELECT * FROM delegations_undelegations
  		UNION ALL 
