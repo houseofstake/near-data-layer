@@ -92,10 +92,17 @@ WITH execution_outcomes_prep AS (
  , proposal_votes AS ( 
  	SELECT 
  		proposal_id 
+		--Counts
  		, COUNT(DISTINCT voter_id) AS num_distinct_voters 
  		, STRING_AGG(DISTINCT voter_id, ', ' ORDER BY voter_id ASC)	AS listagg_distinct_voters 
 		, SUM(CASE WHEN vote_option = 0 THEN 1 ELSE 0 END) AS num_for_votes 
  		, SUM(CASE WHEN vote_option = 1 THEN 1 ELSE 0 END) AS num_against_votes 
+ 		, SUM(CASE WHEN vote_option = 2 THEN 1 ELSE 0 END) AS num_abstain_votes 
+        --Voting Power from Vote Options
+		, SUM(CASE WHEN vote_option = 0 THEN voting_power ELSE 0 END) AS for_voting_power
+ 		, SUM(CASE WHEN vote_option = 1 THEN voting_power ELSE 0 END) AS against_voting_power
+ 		, SUM(CASE WHEN vote_option = 2 THEN voting_power ELSE 0 END) AS abstain_voting_power
+
  	FROM proposal_voting_history 
  	GROUP BY 1
  )
@@ -139,6 +146,9 @@ WITH execution_outcomes_prep AS (
  	, COALESCE(pv.num_distinct_voters, 0) AS num_distinct_voters 
  	, COALESCE(pv.num_for_votes, 0) AS num_for_votes
  	, COALESCE(pv.num_against_votes, 0) AS num_against_votes 
+    , COALESCE(pv.for_voting_power, 0) AS for_voting_power
+    , COALESCE(pv.against_voting_power, 0) AS against_voting_power
+ 	, COALESCE(pv.abstain_voting_power, 0) AS abstain_voting_power
  	
  	--Block Data 
 	, cp.block_height 
