@@ -6,6 +6,7 @@ A high-performance, real-time blockchain data indexing infrastructure that power
 ## Architecture Overview
 
 The NEAR data layer is built on a modern streaming architecture that processes blockchain data in real-time:
+![agora-near-arch-diagram](https://github.com/user-attachments/assets/a6b36e54-d8a5-4f0e-949c-3ce652ec27e0)
 
 ```
 NEAR Blockchain → Pinax Substreams → substreams-sink-sql → PostgreSQL → Agora BE/FE
