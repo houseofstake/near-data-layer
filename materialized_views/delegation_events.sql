@@ -14,8 +14,7 @@
  10. The block-related data for the delegate_all or undelegate event (block hash/id, block height) 
  */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW delegation_events AS 
+CREATE VIEW delegation_events AS 
 WITH execution_outcomes_prep AS (
 	SELECT
  		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
@@ -73,18 +72,4 @@ SELECT
  LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  	ON TRUE
  ORDER BY ra.block_timestamp DESC
- WITH DATA
 ;
-
---Create the unique index for the view 
-CREATE UNIQUE INDEX idx_delegation_events_id ON delegation_events (id);
-
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_delegation_events', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY delegation_events;$$
-);
-
---Pause the cron schedule 
-SELECT cron.alter_job(7, active := false);

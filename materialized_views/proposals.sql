@@ -9,8 +9,7 @@
  5. The block-related data for the create_proposal action (block hash/id, block height) 
  */
 
---Create the materialized view
-CREATE MATERIALIZED VIEW proposals AS 
+CREATE VIEW proposals AS 
 WITH execution_outcomes_prep AS (
  	SELECT
  		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
@@ -93,10 +92,17 @@ WITH execution_outcomes_prep AS (
  , proposal_votes AS ( 
  	SELECT 
  		proposal_id 
+		--Counts
  		, COUNT(DISTINCT voter_id) AS num_distinct_voters 
  		, STRING_AGG(DISTINCT voter_id, ', ' ORDER BY voter_id ASC)	AS listagg_distinct_voters 
 		, SUM(CASE WHEN vote_option = 0 THEN 1 ELSE 0 END) AS num_for_votes 
  		, SUM(CASE WHEN vote_option = 1 THEN 1 ELSE 0 END) AS num_against_votes 
+ 		, SUM(CASE WHEN vote_option = 2 THEN 1 ELSE 0 END) AS num_abstain_votes 
+        --Voting Power from Vote Options
+		, SUM(CASE WHEN vote_option = 0 THEN voting_power ELSE 0 END) AS for_voting_power
+ 		, SUM(CASE WHEN vote_option = 1 THEN voting_power ELSE 0 END) AS against_voting_power
+ 		, SUM(CASE WHEN vote_option = 2 THEN voting_power ELSE 0 END) AS abstain_voting_power
+
  	FROM proposal_voting_history 
  	GROUP BY 1
  )
@@ -140,6 +146,9 @@ WITH execution_outcomes_prep AS (
  	, COALESCE(pv.num_distinct_voters, 0) AS num_distinct_voters 
  	, COALESCE(pv.num_for_votes, 0) AS num_for_votes
  	, COALESCE(pv.num_against_votes, 0) AS num_against_votes 
+    , COALESCE(pv.for_voting_power, 0) AS for_voting_power
+    , COALESCE(pv.against_voting_power, 0) AS against_voting_power
+ 	, COALESCE(pv.abstain_voting_power, 0) AS abstain_voting_power
  	
  	--Block Data 
 	, cp.block_height 
@@ -153,18 +162,4 @@ WITH execution_outcomes_prep AS (
  LEFT JOIN proposal_votes AS pv 
  	ON ap.proposal_id = pv.proposal_id 
  ORDER BY cp.proposal_created_at ASC
-WITH DATA
 ; 
-
---Create the unique index for the view 
-CREATE UNIQUE INDEX idx_proposals_id ON proposals (id);
-
---Create the cron schedule
-SELECT cron.schedule(
-    'refresh_proposals', 
-    '* * * * *',                   -- every minute
-    $$REFRESH MATERIALIZED VIEW CONCURRENTLY proposals;$$
-);
-
---Pause the cron schedule 
-SELECT cron.alter_job(12, active := false); 
