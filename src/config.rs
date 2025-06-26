@@ -30,3 +30,45 @@ impl Settings {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_settings_new_success() {
+        let result = Settings::new();
+        assert!(result.is_ok());
+        
+        let settings = result.unwrap();
+        assert!(!settings.venear_contract_ids.is_empty());
+    }
+
+    #[test]
+    fn test_settings_contract_ids_not_empty() {
+        let settings = Settings::new().unwrap();
+        // Verify that we have some contract IDs loaded
+        assert!(!settings.venear_contract_ids.is_empty());
+        
+        // Verify that all contract IDs are valid strings
+        for contract_id in &settings.venear_contract_ids {
+            assert!(!contract_id.is_empty());
+            assert!(contract_id.contains('.'));
+        }
+    }
+
+    #[test]
+    fn test_env_variable_handling() {
+        // Test with no ENV variable set (should default to DEV)
+        let result = Settings::new();
+        assert!(result.is_ok());
+        
+        // Test with ENV=DEV
+        std::env::set_var("ENV", "DEV");
+        let result = Settings::new();
+        assert!(result.is_ok());
+        
+        // Clean up
+        std::env::remove_var("ENV");
+    }
+}

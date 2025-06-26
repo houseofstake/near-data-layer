@@ -1,0 +1,6 @@
+[run]
+exclude-files = [
+    "src/pb/*"
+]
+out = []
+verbose = true 
