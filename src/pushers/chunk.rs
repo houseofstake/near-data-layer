@@ -1,5 +1,5 @@
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
-// use crate::pb::near::entities::v1::Chunk;
+use crate::pb::near::entities::v1::Chunk;
 
 // DEPRECATED: Chunks data is no longer needed
 // Keeping function here in case we need it in the future
@@ -8,7 +8,8 @@ pub fn push_create_chunk(
     changes: &mut DatabaseChanges,
     key: &str,
     ordinal: u64,
-    _value: &(), // Changed from &Chunk to &() since Chunk type is not available
+    value: &Chunk,
+    // _value: &(), // Changed from &Chunk to &() since Chunk type is not available
 ) {
     // Function commented out since Chunk type is not available in protobuf
     /*
