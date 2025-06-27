@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS execution_outcomes (
     outcome_receipt_ids TEXT[] NOT NULL,
     executed_in_block_hash TEXT NOT NULL,
     logs TEXT[],
-    results_base64 TEXT, -- Base64 encoded return value (only for SuccessValue outcomes)
-    results_json TEXT, -- JSON representation if parseable (only for SuccessValue outcomes)
+    results_base64 TEXT, -- Base64 encoded return value 
+    results_json TEXT, -- JSON representation if parseable 
     block_timestamp TIMESTAMP 
 );
