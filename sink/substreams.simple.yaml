@@ -3,14 +3,10 @@ package:
   name: "near-substreams-sql-sink"
   version: v0.1.0
 
-imports:
-  sql: https://github.com/streamingfast/substreams-sink-sql/releases/download/protodefs-v1.0.3/substreams-sink-sql-protodefs-v1.0.3.spkg
-  main: ../near-substreams-sql-sink-v0.1.0.spkg
-
 network: 'testnet'
 
 sink:
-  module: main:db_out
+  module: ../near-substreams-sql-sink-v0.1.0.spkg:db_out
   type: sf.substreams.sink.sql.v1.Service
   config:
     schema: "../schema.sql"

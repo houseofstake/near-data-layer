@@ -15,7 +15,7 @@ pub fn process_execution_outcome_result(
     if let Some(outcome) = &execution_outcome.outcome {
         // Only process successful execution outcomes that have return values
         if let Some(execution_outcome::Status::SuccessValue(value)) = &outcome.status {
-            let result_value = base64::encode(&value.bytes);
+            let result_value = BASE64.encode(&value.value);
             
             // Try to decode the result value and convert to JSON if possible
             let result_json = match BASE64.decode(&result_value) {
@@ -64,7 +64,7 @@ pub fn process_execution_outcome_result(
                 block_timestamp: format_timestamp(header.timestamp_nanosec),
             };
 
-            let key = receipt_id.to_string();
+            let key = format!("{}-{}", header.height, receipt_id);
             push_create_execution_outcome_result(changes, &key, 0, &execution_outcome_result_entity);
         }
     }

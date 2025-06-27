@@ -4,6 +4,7 @@ use crate::pb::near::entities::v1::ReceiptAction as ReceiptActionEntity;
 
 use crate::pushers::push_create_receipt_action;
 use crate::processors::utils::{bytes_to_string, format_timestamp};
+use crate::processors::process_receipt_action_arguments;
 
 pub fn process_receipt_actions(
     changes: &mut DatabaseChanges,
@@ -69,6 +70,9 @@ pub fn process_receipt_actions(
         };
 
         push_create_receipt_action(changes, &unique_id, 0, &receipt_action);
+
+        // Also process receipt action arguments for FunctionCall actions
+        process_receipt_action_arguments(changes, action_receipt, header, shard, receipt_id, action_index as u32);
     }
 }
 

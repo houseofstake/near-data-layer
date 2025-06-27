@@ -104,3 +104,23 @@ CREATE TABLE IF NOT EXISTS execution_outcome_results (
     block_timestamp TIMESTAMP NOT NULL,
     FOREIGN KEY (receipt_id) REFERENCES execution_outcomes(receipt_id)
 );
+
+CREATE TABLE IF NOT EXISTS receipt_action_arguments (
+    id TEXT PRIMARY KEY, -- receipt_id + action_index as primary key
+    receipt_id TEXT NOT NULL,
+    action_index INTEGER NOT NULL,
+    block_height BIGINT NOT NULL,
+    block_hash TEXT NOT NULL,
+    chunk_hash TEXT NOT NULL,
+    shard_id TEXT NOT NULL,
+    method_name TEXT NOT NULL,
+    receiver_id TEXT NOT NULL,
+    signer_account_id TEXT NOT NULL,
+    predecessor_id TEXT NOT NULL,
+    args_base64 TEXT NOT NULL, -- Original base64 encoded arguments
+    args_json TEXT, -- JSON representation if parseable
+    gas BIGINT NOT NULL,
+    deposit TEXT NOT NULL,
+    block_timestamp TIMESTAMP NOT NULL,
+    FOREIGN KEY (receipt_id) REFERENCES receipt_actions(receipt_id)
+);

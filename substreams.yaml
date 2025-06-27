@@ -21,7 +21,7 @@ binaries:
 modules:
   - name: db_out
     kind: map
-    initialBlock: 162542069 # May 2024
+    initialBlock: 201857082 # Specific testnet block for testing execution_outcome_results
     # initialBlock: 198570538 # Receipt Actions Example Block
     inputs:
       - source: sf.near.type.v1.Block
