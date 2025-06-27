@@ -1,4 +1,20 @@
-CREATE VIEW user_activities_v2 AS
+/*
+ This is a dimensional table that returns all historical delegate/undelegate & stake/unstake events for a given user account; both successful and failed events are included. 
+ Primary key is the receipt_id (base58 encoded) associated with any given event per account_id.
+ Unique method_names referenced as an individual event: 
+ (1) on_lockup_deployed, (2) lock_near, (3) on_lockup_update, (4) end_unlock_near, (5) delegate_all, (6) undelegate, (7) begin_unlock_near, (8) lock_pending_near
+ 
+ 1. Timestamp / date of the event
+ 2. House of Stake contract address 
+ 3. Event Type / Method Name 
+ 4. Event Status (one of succeeded or failed)
+ 5. Account ID (the user performing the NEAR delegation) 
+ 6. Near amount 
+ 7. Locked near balance 
+ 8. The block-related data for the event (block hash, block height) 
+ */
+
+CREATE VIEW user_activities AS
 WITH execution_outcomes_prep AS (
 	SELECT
 		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
@@ -37,16 +53,14 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, ra.predecessor_id AS hos_contract_address 
     	, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'lockup_deposit')::NUMERIC AS near_amount 
-    	, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --ALWAYS NULL 
+    	, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --Field exists in the logs, but is ALWAYS NULL  
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
---    	, decode(ra.args_base64, 'base64') AS args
---    	, ra.logs 
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'on_lockup_deployed'
 		AND ra.receiver_id IN (          
- 			'v.r-1748895584.testnet'      
+ 			'v.r-1748895584.testnet'  
  			, 'vote.r-1748895584.testnet' 
  			)
 )
@@ -67,15 +81,13 @@ WITH execution_outcomes_prep AS (
   		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance 
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
---    	, decode(ra.args_base64, 'base64') AS args
---    	, ra.logs 
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'lock_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (
-		 	'v.r-1748895584.testnet'     
+ 			'v.r-1748895584.testnet'  
  			, 'vote.r-1748895584.testnet' 
-			)
+ 			)
 )
 , on_lockup_update_prep AS (
     --There are 2 event_json arrays per on_lockup_update method; 1st event is on_lockup_update; 2nd is ft_mint. 
@@ -109,10 +121,10 @@ WITH execution_outcomes_prep AS (
     CROSS JOIN LATERAL UNNEST(ra.logs) AS log
     WHERE 
     	ra.method_name = 'on_lockup_update'
-        AND ra.receiver_id IN (           
-            'v.r-1748895584.testnet'      
-            , 'vote.r-1748895584.testnet' 
-        )
+        AND ra.receiver_id IN (        
+ 			'v.r-1748895584.testnet'  
+ 			, 'vote.r-1748895584.testnet' 
+ 			)
     GROUP BY 1,2,3,4,5,6,7,8,9
 )
 , on_lockup_update AS (
@@ -131,33 +143,6 @@ WITH execution_outcomes_prep AS (
     	, block_hash
     FROM on_lockup_update_prep
 )
----------------------------
---Complete Unlock Process--
----------------------------
-, end_unlock_near AS (
-  	SELECT
-  		base58_encode(ra.receipt_id) AS id 
-  		, base58_encode(ra.receipt_id) AS receipt_id
-  		, ra.block_timestamp AS event_timestamp
-  		, method_name AS event_type 
-  		, ra.method_name 
-  		, ra.event_status
-    	, ra.signer_account_id AS account_id 
-    	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --there ARE NO logs FOR this event_type
-    	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
---    	, decode(ra.args_base64, 'base64') AS args
---    	, ra.logs 
-  	FROM receipt_actions_prep AS ra
-  	WHERE
-    	ra.method_name = 'end_unlock_near'
-		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'      
- 			, 'vote.r-1748895584.testnet' 
- 			)
-)
  -------------------------------
  --Delegations / Undelegations--
  -------------------------------
@@ -173,18 +158,16 @@ WITH execution_outcomes_prep AS (
     	, COALESCE(REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id', ra.signer_account_id) AS account_id
     	, ra.receiver_id AS hos_contract_address 
 	    , (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'amount')::NUMERIC AS near_amount
-	    , (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --this does NOT exist FOR delegate_all AND undelegate events 
+	    , NULL::NUMERIC AS locked_near_balance --This does NOT exist FOR delegate_all AND undelegate events 
     	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
---    	, decode(ra.args_base64, 'base64') AS args
---    	, ra.logs 
+    	, base58_encode(ra.block_hash) AS block_hash 
   	FROM receipt_actions_prep AS ra
   	LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  		ON TRUE
   	WHERE
     	ra.method_name IN ('delegate_all', 'undelegate')
 		AND ra.receiver_id IN (           
- 			'v.r-1748895584.testnet'      
+ 			'v.r-1748895584.testnet'  
  			, 'vote.r-1748895584.testnet' 
  			)
 )
@@ -202,16 +185,14 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --there ARE NO logs FOR this event_type
-    	, ra.block_height
+		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
+        , ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
---    	, decode(ra.args_base64, 'base64') AS args
---    	, ra.logs 
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'begin_unlock_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'      
+ 			'v.r-1748895584.testnet'  
  			, 'vote.r-1748895584.testnet' 
  			)
  )
@@ -229,16 +210,14 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance
+		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
---    	, decode(ra.args_base64, 'base64') AS args
---    	, ra.logs 
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'lock_pending_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'      
+ 			'v.r-1748895584.testnet'  
  			, 'vote.r-1748895584.testnet' 
  			)
  )
@@ -251,8 +230,6 @@ WITH execution_outcomes_prep AS (
  	SELECT * FROM lock_near
  		UNION ALL 
  	SELECT * FROM on_lockup_update
- 		UNION ALL 
-	SELECT * FROM end_unlock_near
  		UNION ALL 
  	SELECT * FROM delegations_undelegations
  		UNION ALL 
