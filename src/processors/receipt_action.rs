@@ -71,8 +71,8 @@ pub fn process_receipt_actions(
 
         push_create_receipt_action(changes, &unique_id, 0, &receipt_action);
 
-        // Also process receipt action arguments for FunctionCall actions
-        process_receipt_action_arguments(changes, action_receipt, header, shard, receipt_id, action_index as u32);
+        // Also process receipt action arguments for this specific FunctionCall action
+        process_receipt_action_arguments(changes, action_receipt, receipt, header, shard, receipt_id, author, action_index);
     }
 }
 

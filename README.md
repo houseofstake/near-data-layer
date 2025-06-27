@@ -46,6 +46,7 @@ The data layer includes several optimized views for the Agora application:
 - **`proposal_voting_history`**: Individual vote records
 - **`delegation_events`**: Voting power delegation transactions
 - **`approved_proposals`**: Proposals approved for public voting
+- **`user_activities`**: All delegation/undelegation & staking/unstaking events per account
 
 ## Infrastructure & Deployment
 

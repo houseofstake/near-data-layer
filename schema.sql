@@ -121,6 +121,5 @@ CREATE TABLE IF NOT EXISTS receipt_action_arguments (
     args_json TEXT, -- JSON representation if parseable
     gas BIGINT NOT NULL,
     deposit TEXT NOT NULL,
-    block_timestamp TIMESTAMP NOT NULL,
-    FOREIGN KEY (receipt_id) REFERENCES receipt_actions(receipt_id)
+    block_timestamp TIMESTAMP NOT NULL
 );
