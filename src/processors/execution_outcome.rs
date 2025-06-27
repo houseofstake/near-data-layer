@@ -47,11 +47,9 @@ pub fn process_execution_outcome(
                     let error_info = json!({
                         "status": "Failure",
                         "error_type": "ExecutionFailure",
-                        "error_message": inner.error_message.clone().unwrap_or_default(),
-                        "error_kind": format!("{:?}", inner.error_kind),
-                        "gas_used": inner.gas_used,
-                        "gas_burnt": inner.gas_burnt,
-                        "tokens_burnt": if let Some(tb) = &inner.tokens_burnt {
+                        "error_details": format!("{:?}", inner.failure),
+                        "gas_burnt": outcome.gas_burnt,
+                        "tokens_burnt": if let Some(tb) = &outcome.tokens_burnt {
                             bytes_to_string(&tb.bytes)
                         } else {
                             "0".to_string()
@@ -70,9 +68,8 @@ pub fn process_execution_outcome(
                         } else { 
                             "".to_string() 
                         },
-                        "gas_used": inner.gas_used,
-                        "gas_burnt": inner.gas_burnt,
-                        "tokens_burnt": if let Some(tb) = &inner.tokens_burnt {
+                        "gas_burnt": outcome.gas_burnt,
+                        "tokens_burnt": if let Some(tb) = &outcome.tokens_burnt {
                             bytes_to_string(&tb.bytes)
                         } else {
                             "0".to_string()
@@ -87,9 +84,8 @@ pub fn process_execution_outcome(
                     let unknown_info = json!({
                         "status": "Unknown",
                         "raw_data": format!("{:?}", inner),
-                        "gas_used": inner.gas_used,
-                        "gas_burnt": inner.gas_burnt,
-                        "tokens_burnt": if let Some(tb) = &inner.tokens_burnt {
+                        "gas_burnt": outcome.gas_burnt,
+                        "tokens_burnt": if let Some(tb) = &outcome.tokens_burnt {
                             bytes_to_string(&tb.bytes)
                         } else {
                             "0".to_string()
