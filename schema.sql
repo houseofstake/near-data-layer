@@ -89,20 +89,10 @@ CREATE TABLE IF NOT EXISTS execution_outcomes (
     status TEXT NOT NULL,
     outcome_receipt_ids TEXT[] NOT NULL,
     executed_in_block_hash TEXT NOT NULL,
-    logs TEXT[]
-);
-
-CREATE TABLE IF NOT EXISTS execution_outcome_results (
-    receipt_id TEXT PRIMARY KEY,
-    block_height BIGINT NOT NULL,
-    block_hash TEXT NOT NULL,
-    chunk_hash TEXT NOT NULL,
-    shard_id TEXT NOT NULL,
-    status TEXT NOT NULL,
-    result_value TEXT, -- Base64 encoded return value
-    result_json TEXT, -- JSON representation if parseable
-    block_timestamp TIMESTAMP NOT NULL,
-    FOREIGN KEY (receipt_id) REFERENCES execution_outcomes(receipt_id)
+    logs TEXT[],
+    result_value TEXT, -- Base64 encoded return value (only for SuccessValue outcomes)
+    result_json TEXT, -- JSON representation if parseable (only for SuccessValue outcomes)
+    block_timestamp TIMESTAMP -- Timestamp from the block header
 );
 
 CREATE TABLE IF NOT EXISTS receipt_action_arguments (

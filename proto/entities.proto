@@ -108,18 +108,9 @@ message ExecutionOutcome {
   string receipt_id = 11;
   string executed_in_block_hash = 12;
   repeated string logs = 13;
-}
-
-message ExecutionOutcomeResult {
-  string receipt_id = 1; // Primary key, matches execution_outcomes.receipt_id
-  uint64 block_height = 2;
-  string block_hash = 3;
-  string chunk_hash = 4;
-  string shard_id = 5;
-  string status = 6; // Should be "SuccessValue" for this table
-  string result_value = 7; // The actual return value from the function call (base64 encoded)
-  string result_json = 8; // JSON representation of the result if it can be parsed
-  string block_timestamp = 9; // Timestamp from the block header
+  string result_value = 14; // The actual return value from the function call (base64 encoded, only for SuccessValue outcomes)
+  string result_json = 15; // JSON representation of the result if it can be parsed (only for SuccessValue outcomes)
+  string block_timestamp = 16; // Timestamp from the block header
 }
 
 message ReceiptActionArguments {

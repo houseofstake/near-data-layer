@@ -1,33 +1,38 @@
 # Execution Outcome Results Indexer
 
-This document describes the new functionality added to capture execution outcome results (return values) and receipt action arguments (input parameters) from NEAR function calls.
+This document describes the functionality added to capture execution outcome results (return values) and receipt action arguments (input parameters) from NEAR function calls.
 
 ## Overview
 
-The NEAR blockchain execution outcomes contain return values from successful function calls, and receipt actions contain input parameters passed to functions. These are not captured in the standard `execution_outcomes` and `receipt_actions` tables. This new functionality extracts and stores both:
+The NEAR blockchain execution outcomes contain return values from successful function calls, and receipt actions contain input parameters passed to functions. This functionality extracts and stores both:
 
-1. **Execution Outcome Results** - Return values from successful function calls
-2. **Receipt Action Arguments** - Input parameters passed to function calls
+1. **Execution Outcome Results** - Return values from successful function calls (stored in the `execution_outcomes` table)
+2. **Receipt Action Arguments** - Input parameters passed to function calls (stored in the `receipt_action_arguments` table)
 
-## New Components
+## Components
 
 ### 1. Database Schema
 
-Two new tables have been added to `schema.sql`:
+The `execution_outcomes` table has been enhanced with additional fields:
 
 ```sql
--- For capturing return values from successful function calls
-CREATE TABLE IF NOT EXISTS execution_outcome_results (
+CREATE TABLE IF NOT EXISTS execution_outcomes (
     receipt_id TEXT PRIMARY KEY,
     block_height BIGINT NOT NULL,
     block_hash TEXT NOT NULL,
     chunk_hash TEXT NOT NULL,
     shard_id TEXT NOT NULL,
+    gas_burnt BIGINT NOT NULL,
+    gas_used FLOAT NOT NULL,
+    tokens_burnt FLOAT NOT NULL,
+    executor_account_id TEXT NOT NULL,
     status TEXT NOT NULL,
-    result_value TEXT, -- Base64 encoded return value
-    result_json TEXT, -- JSON representation if parseable
-    block_timestamp TIMESTAMP NOT NULL,
-    FOREIGN KEY (receipt_id) REFERENCES execution_outcomes(receipt_id)
+    outcome_receipt_ids TEXT[] NOT NULL,
+    executed_in_block_hash TEXT NOT NULL,
+    logs TEXT[],
+    result_value TEXT, -- Base64 encoded return value (only for SuccessValue outcomes)
+    result_json TEXT, -- JSON representation if parseable (only for SuccessValue outcomes)
+    block_timestamp TIMESTAMP -- Timestamp from the block header
 );
 
 -- For capturing input parameters passed to function calls
@@ -54,19 +59,26 @@ CREATE TABLE IF NOT EXISTS receipt_action_arguments (
 
 ### 2. Protobuf Entities
 
-Two new entities have been added to `proto/entities.proto`:
+The `ExecutionOutcome` entity has been enhanced with additional fields:
 
 ```protobuf
-message ExecutionOutcomeResult {
-  string receipt_id = 1; // Primary key, matches execution_outcomes.receipt_id
-  uint64 block_height = 2;
-  string block_hash = 3;
-  string chunk_hash = 4;
-  string shard_id = 5;
-  string status = 6; // Should be "SuccessValue" for this table
-  string result_value = 7; // The actual return value from the function call (base64 encoded)
-  string result_json = 8; // JSON representation of the result if it can be parsed
-  string block_timestamp = 9; // Timestamp from the block header
+message ExecutionOutcome {
+  uint64 block_height = 1;
+  string block_hash = 2;
+  string chunk_hash = 3;
+  string shard_id = 4;
+  uint64 gas_burnt = 5;
+  float gas_used = 6;
+  float tokens_burnt = 7;
+  string executor_account_id = 8;
+  string status = 9;
+  repeated string outcome_receipt_ids = 10; // Will be stored as TEXT[] in PostgreSQL
+  string receipt_id = 11;
+  string executed_in_block_hash = 12;
+  repeated string logs = 13;
+  string result_value = 14; // The actual return value from the function call (base64 encoded, only for SuccessValue outcomes)
+  string result_json = 15; // JSON representation of the result if it can be parsed (only for SuccessValue outcomes)
+  string block_timestamp = 16; // Timestamp from the block header
 }
 
 message ReceiptActionArguments {
@@ -91,38 +103,38 @@ message ReceiptActionArguments {
 
 ### 3. Processors
 
-Two new processors have been created:
+Two processors handle the data extraction:
 
-- **`process_execution_outcome_result`** - Extracts return values from `SuccessValue` execution outcomes
+- **`process_execution_outcome`** - Extracts return values from `SuccessValue` execution outcomes and stores them in the unified `execution_outcomes` table
 - **`process_receipt_action_arguments`** - Extracts input parameters from FunctionCall actions
 
 ### 4. Pushers
 
-Two new pushers handle database changes for the new tables.
+Pushers handle database changes for the enhanced tables.
 
 ## Usage
 
 ### Querying Execution Outcome Results
 
-You can now query execution outcome results and join them with existing tables:
+You can now query execution outcome results directly from the `execution_outcomes` table:
 
 ```sql
 -- Get execution outcome results with related data
 SELECT 
-    eor.receipt_id,
-    eor.block_height,
-    eor.block_timestamp,
+    eo.receipt_id,
+    eo.block_height,
+    eo.block_timestamp,
     eo.status as execution_status,
-    eor.status as result_status,
-    eor.result_value,
-    eor.result_json,
+    eo.result_value,
+    eo.result_json,
     ra.method_name,
     ra.receiver_id
-FROM execution_outcome_results eor
-JOIN execution_outcomes eo ON eor.receipt_id = eo.receipt_id
-JOIN receipt_actions ra ON eor.receipt_id = ra.receipt_id
-WHERE eor.block_height = 201857082
-ORDER BY eor.block_timestamp DESC;
+FROM execution_outcomes eo
+JOIN receipt_actions ra ON eo.receipt_id = ra.receipt_id
+WHERE eo.status = 'SuccessValue'
+  AND eo.result_json IS NOT NULL
+  AND eo.result_json != ''
+ORDER BY eo.block_timestamp DESC;
 ```
 
 ### Querying Receipt Action Arguments
@@ -189,9 +201,9 @@ SELECT
     raa.method_name,
     raa.receiver_id as contract_address,
     raa.args_json as input_arguments,
-    eor.result_json as output_results
+    eo.result_json as output_results
 FROM receipt_action_arguments raa
-LEFT JOIN execution_outcome_results eor ON raa.receipt_id = eor.receipt_id
+LEFT JOIN execution_outcomes eo ON raa.receipt_id = eo.receipt_id
 WHERE raa.method_name = 'new'
   AND raa.args_json IS NOT NULL
 ORDER BY raa.block_timestamp DESC;
@@ -207,8 +219,9 @@ SELECT
     receipt_id,
     result_json::json->1->'V0'->'total_venear_balance'->>'near_balance' as near_balance,
     result_json::json->1->'V0'->'total_venear_balance'->>'extra_venear_balance' as extra_balance
-FROM execution_outcome_results
-WHERE result_json IS NOT NULL 
+FROM execution_outcomes
+WHERE status = 'SuccessValue'
+  AND result_json IS NOT NULL 
   AND result_json != '';
 ```
 
@@ -236,7 +249,7 @@ These will test the base64 decoding and JSON parsing logic with the exact transa
 3. **SuccessValue Detection**: Only execution outcomes with `SuccessValue` status are processed for results
 4. **Base64 Decoding**: Both arguments and return values are decoded from base64
 5. **JSON Parsing**: If the decoded values are valid UTF-8, they're attempted to be parsed as JSON
-6. **Storage**: Both raw base64 values and parsed JSON (if available) are stored
+6. **Storage**: Both raw base64 values and parsed JSON (if available) are stored in the unified `execution_outcomes` table
 
 ### Error Handling
 
@@ -251,15 +264,24 @@ These will test the base64 decoding and JSON parsing logic with the exact transa
 - Only `SuccessValue` execution outcomes are processed for results
 - The JSON parsing is done in-memory during processing
 - The base64 decoding is efficient and doesn't impact performance significantly
+- Using a unified table reduces JOIN complexity and improves query performance
 
 ## Integration
 
 The new functionality is automatically integrated into the existing indexer:
 
-- The `process_receipt_actions` function now calls `process_receipt_action_arguments`
-- The `process_execution_outcome` function now calls `process_execution_outcome_result`
+- The `process_execution_outcome` function now includes result processing logic
+- The `process_receipt_actions` function calls `process_receipt_action_arguments`
 - No changes to the main processing pipeline are required
-- The new tables are created automatically when the schema is applied
+- The enhanced table structure is created automatically when the schema is applied
+
+## Benefits of Unified Table Design
+
+1. **Reduced Data Duplication**: No need to store the same block/transaction metadata twice
+2. **Simplified Queries**: No need for JOINs between separate tables
+3. **Better Performance**: Fewer table scans and joins
+4. **Easier Maintenance**: Single table to manage instead of two related tables
+5. **Atomic Operations**: All execution outcome data is stored together
 
 ## Future Enhancements
 

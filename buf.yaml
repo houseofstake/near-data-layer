@@ -1,0 +1,4 @@
+version: v1
+name: buf.build/example/near-substreams-sql-sink
+deps:
+  - buf.build/streamingfast/substreams:v0.6.1

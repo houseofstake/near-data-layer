@@ -2,81 +2,82 @@
 
 -- 1. Query contract initialization results (method_name = 'new')
 SELECT 
-    eor.receipt_id,
-    eor.block_height,
-    eor.block_timestamp,
+    eo.receipt_id,
+    eo.block_height,
+    eo.block_timestamp,
     ra.method_name,
     ra.receiver_id as contract_address,
     ra.signer_account_id as deployer,
-    eor.result_json,
+    eo.result_json,
     -- Extract specific config values
-    eor.result_json::json->'config'->>'owner_account_id' as owner_account_id,
-    eor.result_json::json->'config'->>'local_deposit' as local_deposit,
-    eor.result_json::json->'config'->>'min_lockup_deposit' as min_lockup_deposit,
-    eor.result_json::json->'config'->>'unlock_duration_ns' as unlock_duration_ns,
-    eor.result_json::json->'config'->'guardians' as guardians,
-    eor.result_json::json->'config'->'lockup_code_deployers' as lockup_code_deployers,
-    eor.result_json::json->'config'->>'staking_pool_whitelist_account_id' as staking_pool_whitelist,
+    eo.result_json::json->'config'->>'owner_account_id' as owner_account_id,
+    eo.result_json::json->'config'->>'local_deposit' as local_deposit,
+    eo.result_json::json->'config'->>'min_lockup_deposit' as min_lockup_deposit,
+    eo.result_json::json->'config'->>'unlock_duration_ns' as unlock_duration_ns,
+    eo.result_json::json->'config'->'guardians' as guardians,
+    eo.result_json::json->'config'->'lockup_code_deployers' as lockup_code_deployers,
+    eo.result_json::json->'config'->>'staking_pool_whitelist_account_id' as staking_pool_whitelist,
     -- Extract venear growth config
-    eor.result_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'numerator' as growth_rate_numerator,
-    eor.result_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'denominator' as growth_rate_denominator
-FROM execution_outcome_results eor
-JOIN receipt_actions ra ON eor.receipt_id = ra.receipt_id
+    eo.result_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'numerator' as growth_rate_numerator,
+    eo.result_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'denominator' as growth_rate_denominator
+FROM execution_outcomes eo
+JOIN receipt_actions ra ON eo.receipt_id = ra.receipt_id
 WHERE ra.method_name = 'new'
-  AND eor.result_json IS NOT NULL
-  AND eor.result_json != ''
-ORDER BY eor.block_timestamp DESC;
+  AND eo.status = 'SuccessValue'
+  AND eo.result_json IS NOT NULL
+  AND eo.result_json != ''
+ORDER BY eo.block_timestamp DESC;
 
 -- 2. Query specific contract initialization by receipt ID
 SELECT 
-    eor.receipt_id,
-    eor.block_height,
-    eor.block_timestamp,
+    eo.receipt_id,
+    eo.block_height,
+    eo.block_timestamp,
     ra.method_name,
     ra.receiver_id as contract_address,
-    eor.result_json
-FROM execution_outcome_results eor
-JOIN receipt_actions ra ON eor.receipt_id = ra.receipt_id
-WHERE eor.receipt_id = '2cc8rV5qEeyLooJBTPYBW5dqNiSA8P2BQWgyyqhmPPUi'
-  AND ra.method_name = 'new';
+    eo.result_json
+FROM execution_outcomes eo
+JOIN receipt_actions ra ON eo.receipt_id = ra.receipt_id
+WHERE eo.receipt_id = '2cc8rV5qEeyLooJBTPYBW5dqNiSA8P2BQWgyyqhmPPUi'
+  AND ra.method_name = 'new'
+  AND eo.status = 'SuccessValue';
 
 -- 3. Query all execution outcome results with their associated receipt actions
 SELECT 
-    eor.receipt_id,
-    eor.block_height,
-    eor.block_timestamp,
-    ra.method_name,
-    ra.receiver_id,
-    ra.signer_account_id,
+    eo.receipt_id,
+    eo.block_height,
+    eo.block_timestamp,
     eo.status as execution_status,
-    eor.status as result_status,
-    eor.result_value,
-    eor.result_json
-FROM execution_outcome_results eor
-JOIN receipt_actions ra ON eor.receipt_id = ra.receipt_id
-JOIN execution_outcomes eo ON eor.receipt_id = eo.receipt_id
-WHERE eor.block_height = 201857082  -- Replace with your block height
-ORDER BY eor.block_timestamp DESC;
+    eo.result_value,
+    eo.result_json,
+    ra.method_name,
+    ra.receiver_id
+FROM execution_outcomes eo
+JOIN receipt_actions ra ON eo.receipt_id = ra.receipt_id
+WHERE eo.status = 'SuccessValue'
+  AND eo.result_json IS NOT NULL
+  AND eo.result_json != ''
+ORDER BY eo.block_timestamp DESC;
 
 -- 4. Query contract configurations by owner account
 SELECT 
-    eor.receipt_id,
-    eor.block_timestamp,
+    eo.receipt_id,
+    eo.block_timestamp,
     ra.receiver_id as contract_address,
-    eor.result_json::json->'config'->>'owner_account_id' as owner_account_id,
-    eor.result_json::json->'config'->>'local_deposit' as local_deposit,
-    eor.result_json::json->'config'->>'min_lockup_deposit' as min_lockup_deposit
-FROM execution_outcome_results eor
-JOIN receipt_actions ra ON eor.receipt_id = ra.receipt_id
+    eo.result_json::json->'config'->>'owner_account_id' as owner_account_id,
+    eo.result_json::json->'config'->>'local_deposit' as local_deposit,
+    eo.result_json::json->'config'->>'min_lockup_deposit' as min_lockup_deposit
+FROM execution_outcomes eo
+JOIN receipt_actions ra ON eo.receipt_id = ra.receipt_id
 WHERE ra.method_name = 'new'
-  AND eor.result_json::json->'config'->>'owner_account_id' = 'owner.r-1748895584.testnet'
-ORDER BY eor.block_timestamp DESC;
+  AND eo.result_json::json->'config'->>'owner_account_id' = 'owner.r-1748895584.testnet'
+ORDER BY eo.block_timestamp DESC;
 
 -- 5. Query all successful function calls with return values
 SELECT 
-    eor.receipt_id,
-    eor.block_height,
-    eor.block_timestamp,
+    eo.receipt_id,
+    eo.block_height,
+    eo.block_timestamp,
     ra.method_name,
     ra.receiver_id,
     ra.signer_account_id,
@@ -86,12 +87,13 @@ SELECT
         WHEN ra.method_name LIKE '%view_%' THEN 'View Function'
         ELSE 'Other Function'
     END as function_type,
-    eor.result_json
-FROM execution_outcome_results eor
-JOIN receipt_actions ra ON eor.receipt_id = ra.receipt_id
-WHERE eor.result_json IS NOT NULL
-  AND eor.result_json != ''
-ORDER BY eor.block_timestamp DESC
+    eo.result_json
+FROM execution_outcomes eo
+JOIN receipt_actions ra ON eo.receipt_id = ra.receipt_id
+WHERE eo.status = 'SuccessValue'
+  AND eo.result_json IS NOT NULL
+  AND eo.result_json != ''
+ORDER BY eo.block_timestamp DESC
 LIMIT 100;
 
 -- ============================================================================
@@ -155,9 +157,9 @@ SELECT
     raa.method_name,
     raa.receiver_id as contract_address,
     raa.args_json as input_arguments,
-    eor.result_json as output_results
+    eo.result_json as output_results
 FROM receipt_action_arguments raa
-LEFT JOIN execution_outcome_results eor ON raa.receipt_id = eor.receipt_id
+LEFT JOIN execution_outcomes eo ON raa.receipt_id = eo.receipt_id
 WHERE raa.method_name = 'new'
   AND raa.args_json IS NOT NULL
 ORDER BY raa.block_timestamp DESC;

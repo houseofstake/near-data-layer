@@ -56,5 +56,8 @@ pub fn push_create_execution_outcome(
         .change("receipt_id", (None, &value.receipt_id))
         .change("executed_in_block_hash", (None, &value.executed_in_block_hash))
         .change("outcome_receipt_ids", (None, array_literal))
-        .change("logs", (None, logs_array_literal));
+        .change("logs", (None, logs_array_literal))
+        .change("result_value", (None, &value.result_value))
+        .change("result_json", (None, &value.result_json))
+        .change("block_timestamp", (None, &value.block_timestamp));
 } 
