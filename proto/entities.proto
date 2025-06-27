@@ -90,6 +90,7 @@ message ReceiptAction {
   uint64 gas = 13;
   string deposit = 14;
   string args_base64 = 15; // Base64 encoded args for FunctionCall
+  string args_json = 19; // JSON representation if parseable
   uint32 action_index = 16; // Index of this action within the receipt
   string block_timestamp = 18; // Timestamp from the block header
 }
@@ -108,26 +109,7 @@ message ExecutionOutcome {
   string receipt_id = 11;
   string executed_in_block_hash = 12;
   repeated string logs = 13;
-  string result_value = 14; // The actual return value from the function call (base64 encoded, only for SuccessValue outcomes)
-  string result_json = 15; // JSON representation of the result if it can be parsed (only for SuccessValue outcomes)
-  string block_timestamp = 16; // Timestamp from the block header
-}
-
-message ReceiptActionArguments {
-  string id = 1; // Primary key (receipt_id + action_index)
-  string receipt_id = 2;
-  uint32 action_index = 3;
-  uint64 block_height = 4;
-  string block_hash = 5;
-  string chunk_hash = 6;
-  string shard_id = 7;
-  string method_name = 8;
-  string receiver_id = 9;
-  string signer_account_id = 10;
-  string predecessor_id = 11;
-  string args_base64 = 12; // Original base64 encoded arguments
-  string args_json = 13; // JSON representation if parseable
-  uint64 gas = 14;
-  string deposit = 15;
+  string results_base64 = 14; // The actual return value from the function call (base64 encoded, only for SuccessValue outcomes)
+  string results_json = 15; // JSON representation of the result if it can be parsed (only for SuccessValue outcomes)
   string block_timestamp = 16; // Timestamp from the block header
 }

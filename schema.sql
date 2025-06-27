@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS receipt_actions (
     gas BIGINT NOT NULL,
     deposit TEXT NOT NULL,
     args_base64 TEXT NOT NULL,
+    args_json TEXT, -- JSON representation if parseable
     action_index INTEGER NOT NULL,
     block_timestamp TIMESTAMP NOT NULL
 );
@@ -90,26 +91,7 @@ CREATE TABLE IF NOT EXISTS execution_outcomes (
     outcome_receipt_ids TEXT[] NOT NULL,
     executed_in_block_hash TEXT NOT NULL,
     logs TEXT[],
-    result_value TEXT, -- Base64 encoded return value (only for SuccessValue outcomes)
-    result_json TEXT, -- JSON representation if parseable (only for SuccessValue outcomes)
-    block_timestamp TIMESTAMP -- Timestamp from the block header
-);
-
-CREATE TABLE IF NOT EXISTS receipt_action_arguments (
-    id TEXT PRIMARY KEY, -- receipt_id + action_index as primary key
-    receipt_id TEXT NOT NULL,
-    action_index INTEGER NOT NULL,
-    block_height BIGINT NOT NULL,
-    block_hash TEXT NOT NULL,
-    chunk_hash TEXT NOT NULL,
-    shard_id TEXT NOT NULL,
-    method_name TEXT NOT NULL,
-    receiver_id TEXT NOT NULL,
-    signer_account_id TEXT NOT NULL,
-    predecessor_id TEXT NOT NULL,
-    args_base64 TEXT NOT NULL, -- Original base64 encoded arguments
-    args_json TEXT, -- JSON representation if parseable
-    gas BIGINT NOT NULL,
-    deposit TEXT NOT NULL,
-    block_timestamp TIMESTAMP NOT NULL
+    results_base64 TEXT, -- Base64 encoded return value (only for SuccessValue outcomes)
+    results_json TEXT, -- JSON representation if parseable (only for SuccessValue outcomes)
+    block_timestamp TIMESTAMP 
 );

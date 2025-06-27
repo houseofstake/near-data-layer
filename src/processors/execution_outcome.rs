@@ -126,8 +126,8 @@ pub fn process_execution_outcome(
                 "".to_string()
             },
             logs: outcome.logs.clone(),
-            result_value,
-            result_json,
+            results_base64: result_value,
+            results_json: result_json,
             block_timestamp: format_timestamp(header.timestamp_nanosec),
         };
 

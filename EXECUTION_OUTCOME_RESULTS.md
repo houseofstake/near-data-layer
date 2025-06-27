@@ -7,7 +7,7 @@ This document describes the functionality added to capture execution outcome res
 The NEAR blockchain execution outcomes contain return values from successful function calls, and receipt actions contain input parameters passed to functions. This functionality extracts and stores both:
 
 1. **Execution Outcome Results** - Return values from successful function calls (stored in the `execution_outcomes` table)
-2. **Receipt Action Arguments** - Input parameters passed to function calls (stored in the `receipt_action_arguments` table)
+2. **Receipt Action Arguments** - Input parameters passed to function calls (stored in the `receipt_actions` table with `args_json` field)
 
 ## Components
 
@@ -30,30 +30,35 @@ CREATE TABLE IF NOT EXISTS execution_outcomes (
     outcome_receipt_ids TEXT[] NOT NULL,
     executed_in_block_hash TEXT NOT NULL,
     logs TEXT[],
-    result_value TEXT, -- Base64 encoded return value (only for SuccessValue outcomes)
-    result_json TEXT, -- JSON representation if parseable (only for SuccessValue outcomes)
+    results_base64 TEXT, -- Base64 encoded return value (only for SuccessValue outcomes)
+    results_json TEXT, -- JSON representation if parseable (only for SuccessValue outcomes)
     block_timestamp TIMESTAMP -- Timestamp from the block header
 );
+```
 
--- For capturing input parameters passed to function calls
-CREATE TABLE IF NOT EXISTS receipt_action_arguments (
-    id TEXT PRIMARY KEY, -- receipt_id + action_index as primary key
-    receipt_id TEXT NOT NULL,
-    action_index INTEGER NOT NULL,
+The `receipt_actions` table has been enhanced with an `args_json` field:
+
+```sql
+CREATE TABLE IF NOT EXISTS receipt_actions (
+    id TEXT PRIMARY KEY,
     block_height BIGINT NOT NULL,
+    receipt_id TEXT NOT NULL,
+    signer_account_id TEXT NOT NULL,
+    signer_public_key TEXT NOT NULL,
+    gas_price TEXT NOT NULL,
+    action_kind TEXT NOT NULL,
+    predecessor_id TEXT NOT NULL,
+    receiver_id TEXT NOT NULL,
     block_hash TEXT NOT NULL,
     chunk_hash TEXT NOT NULL,
-    shard_id TEXT NOT NULL,
+    author TEXT NOT NULL,
     method_name TEXT NOT NULL,
-    receiver_id TEXT NOT NULL,
-    signer_account_id TEXT NOT NULL,
-    predecessor_id TEXT NOT NULL,
-    args_base64 TEXT NOT NULL, -- Original base64 encoded arguments
-    args_json TEXT, -- JSON representation if parseable
     gas BIGINT NOT NULL,
     deposit TEXT NOT NULL,
-    block_timestamp TIMESTAMP NOT NULL,
-    FOREIGN KEY (receipt_id) REFERENCES receipt_actions(receipt_id)
+    args_base64 TEXT NOT NULL, -- Original base64 encoded arguments
+    args_json TEXT, -- JSON representation if parseable
+    action_index INTEGER NOT NULL,
+    block_timestamp TIMESTAMP NOT NULL
 );
 ```
 
@@ -76,28 +81,35 @@ message ExecutionOutcome {
   string receipt_id = 11;
   string executed_in_block_hash = 12;
   repeated string logs = 13;
-  string result_value = 14; // The actual return value from the function call (base64 encoded, only for SuccessValue outcomes)
-  string result_json = 15; // JSON representation of the result if it can be parsed (only for SuccessValue outcomes)
+  string results_base64 = 14; // The actual return value from the function call (base64 encoded, only for SuccessValue outcomes)
+  string results_json = 15; // JSON representation of the result if it can be parsed (only for SuccessValue outcomes)
   string block_timestamp = 16; // Timestamp from the block header
 }
+```
 
-message ReceiptActionArguments {
-  string id = 1; // Primary key (receipt_id + action_index)
+The `ReceiptAction` entity has been enhanced with an `args_json` field:
+
+```protobuf
+message ReceiptAction {
+  string id = 17; // Unique ID as primary key (receipt_id + action_index)
+  uint64 block_height = 1;
   string receipt_id = 2;
-  uint32 action_index = 3;
-  uint64 block_height = 4;
-  string block_hash = 5;
-  string chunk_hash = 6;
-  string shard_id = 7;
-  string method_name = 8;
-  string receiver_id = 9;
-  string signer_account_id = 10;
-  string predecessor_id = 11;
-  string args_base64 = 12; // Original base64 encoded arguments
-  string args_json = 13; // JSON representation if parseable
-  uint64 gas = 14;
-  string deposit = 15;
-  string block_timestamp = 16; // Timestamp from the block header
+  string signer_account_id = 3;
+  string signer_public_key = 4;
+  string gas_price = 5;
+  string action_kind = 6;
+  string predecessor_id = 7;
+  string receiver_id = 8;
+  string block_hash = 9;
+  string chunk_hash = 10;
+  string author = 11;
+  string method_name = 12;
+  uint64 gas = 13;
+  string deposit = 14;
+  string args_base64 = 15; // Base64 encoded args for FunctionCall
+  string args_json = 19; // JSON representation if parseable
+  uint32 action_index = 16; // Index of this action within the receipt
+  string block_timestamp = 18; // Timestamp from the block header
 }
 ```
 
@@ -106,7 +118,7 @@ message ReceiptActionArguments {
 Two processors handle the data extraction:
 
 - **`process_execution_outcome`** - Extracts return values from `SuccessValue` execution outcomes and stores them in the unified `execution_outcomes` table
-- **`process_receipt_action_arguments`** - Extracts input parameters from FunctionCall actions
+- **`process_receipt_actions`** - Extracts input parameters from FunctionCall actions and stores them in the `receipt_actions` table with `args_json` field
 
 ### 4. Pushers
 
@@ -125,53 +137,53 @@ SELECT
     eo.block_height,
     eo.block_timestamp,
     eo.status as execution_status,
-    eo.result_value,
-    eo.result_json,
+    eo.results_base64,
+    eo.results_json,
     ra.method_name,
     ra.receiver_id
 FROM execution_outcomes eo
 JOIN receipt_actions ra ON eo.receipt_id = ra.receipt_id
 WHERE eo.status = 'SuccessValue'
-  AND eo.result_json IS NOT NULL
-  AND eo.result_json != ''
+  AND eo.results_json IS NOT NULL
+  AND eo.results_json != ''
 ORDER BY eo.block_timestamp DESC;
 ```
 
 ### Querying Receipt Action Arguments
 
-You can query function call arguments (input parameters):
+You can query function call arguments (input parameters) from the `receipt_actions` table:
 
 ```sql
 -- Get contract initialization arguments (method_name = 'new')
 SELECT 
-    raa.receipt_id,
-    raa.block_height,
-    raa.block_timestamp,
-    raa.method_name,
-    raa.receiver_id as contract_address,
-    raa.signer_account_id as deployer,
-    raa.args_json,
+    ra.receipt_id,
+    ra.block_height,
+    ra.block_timestamp,
+    ra.method_name,
+    ra.receiver_id as contract_address,
+    ra.signer_account_id as deployer,
+    ra.args_json,
     -- Extract specific config values from arguments
-    raa.args_json::json->'config'->>'owner_account_id' as owner_account_id,
-    raa.args_json::json->'config'->>'local_deposit' as local_deposit,
-    raa.args_json::json->'config'->>'min_lockup_deposit' as min_lockup_deposit,
-    raa.args_json::json->'config'->>'unlock_duration_ns' as unlock_duration_ns,
-    raa.args_json::json->'config'->'guardians' as guardians,
-    raa.args_json::json->'config'->'lockup_code_deployers' as lockup_code_deployers,
-    raa.args_json::json->'config'->>'staking_pool_whitelist_account_id' as staking_pool_whitelist,
+    ra.args_json::json->'config'->>'owner_account_id' as owner_account_id,
+    ra.args_json::json->'config'->>'local_deposit' as local_deposit,
+    ra.args_json::json->'config'->>'min_lockup_deposit' as min_lockup_deposit,
+    ra.args_json::json->'config'->>'unlock_duration_ns' as unlock_duration_ns,
+    ra.args_json::json->'config'->'guardians' as guardians,
+    ra.args_json::json->'config'->'lockup_code_deployers' as lockup_code_deployers,
+    ra.args_json::json->'config'->>'staking_pool_whitelist_account_id' as staking_pool_whitelist,
     -- Extract venear growth config from arguments
-    raa.args_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'numerator' as growth_rate_numerator,
-    raa.args_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'denominator' as growth_rate_denominator
-FROM receipt_action_arguments raa
-WHERE raa.method_name = 'new'
-  AND raa.args_json IS NOT NULL
-  AND raa.args_json != ''
-ORDER BY raa.block_timestamp DESC;
+    ra.args_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'numerator' as growth_rate_numerator,
+    ra.args_json::json->'venear_growth_config'->'annual_growth_rate_ns'->>'denominator' as growth_rate_denominator
+FROM receipt_actions ra
+WHERE ra.method_name = 'new'
+  AND ra.args_json IS NOT NULL
+  AND ra.args_json != ''
+ORDER BY ra.block_timestamp DESC;
 ```
 
 ### Contract Initialization Data
 
-The receipt action arguments indexer will capture contract initialization data from method calls like `new`. This includes configuration data that is passed as input parameters when contracts are deployed.
+The receipt actions indexer will capture contract initialization data from method calls like `new`. This includes configuration data that is passed as input parameters when contracts are deployed.
 
 ### Example: Querying the Specific Transaction
 
@@ -180,14 +192,14 @@ For the transaction mentioned in the requirements:
 ```sql
 -- Query the specific transaction arguments
 SELECT 
-    raa.receipt_id,
-    raa.block_height,
-    raa.block_timestamp,
-    raa.args_value,
-    raa.args_json
-FROM receipt_action_arguments raa
-WHERE raa.receipt_id = '2cc8rV5qEeyLooJBTPYBW5dqNiSA8P2BQWgyyqhmPPUi'
-  AND raa.method_name = 'new';
+    ra.receipt_id,
+    ra.block_height,
+    ra.block_timestamp,
+    ra.args_base64,
+    ra.args_json
+FROM receipt_actions ra
+WHERE ra.receipt_id = '2cc8rV5qEeyLooJBTPYBW5dqNiSA8P2BQWgyyqhmPPUi'
+  AND ra.method_name = 'new';
 ```
 
 ### Comparing Input vs Output
@@ -197,33 +209,28 @@ You can compare input arguments with output results for the same transaction:
 ```sql
 -- Compare arguments vs results for the same transaction
 SELECT 
-    raa.receipt_id,
-    raa.method_name,
-    raa.receiver_id as contract_address,
-    raa.args_json as input_arguments,
-    eo.result_json as output_results
-FROM receipt_action_arguments raa
-LEFT JOIN execution_outcomes eo ON raa.receipt_id = eo.receipt_id
-WHERE raa.method_name = 'new'
-  AND raa.args_json IS NOT NULL
-ORDER BY raa.block_timestamp DESC;
+    ra.receipt_id,
+    ra.method_name,
+    ra.receiver_id as contract_address,
+    ra.args_json as input_arguments,
+    eo.results_json as output_results
+FROM receipt_actions ra
+LEFT JOIN execution_outcomes eo ON ra.receipt_id = eo.receipt_id
+WHERE ra.method_name = 'new'
+  AND ra.args_json IS NOT NULL
+ORDER BY ra.block_timestamp DESC;
 ```
 
-### Parsing JSON Results
+## Summary
 
-Both `result_json` and `args_json` fields contain parsed JSON when the values are valid JSON:
+This consolidation simplifies the database schema by:
 
-```sql
--- Extract specific values from JSON results
-SELECT 
-    receipt_id,
-    result_json::json->1->'V0'->'total_venear_balance'->>'near_balance' as near_balance,
-    result_json::json->1->'V0'->'total_venear_balance'->>'extra_venear_balance' as extra_balance
-FROM execution_outcomes
-WHERE status = 'SuccessValue'
-  AND result_json IS NOT NULL 
-  AND result_json != '';
-```
+1. **Eliminating redundancy**: The `receipt_action_arguments` table was essentially duplicating data already present in `receipt_actions`
+2. **Improving performance**: Fewer joins needed when querying receipt action data
+3. **Simplifying maintenance**: One table to maintain instead of two
+4. **Better data consistency**: All receipt action data is now in one place
+
+The `args_json` field in the `receipt_actions` table provides the same functionality as the previous `receipt_action_arguments` table, but with better integration and performance.
 
 ## Testing
 

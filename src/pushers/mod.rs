@@ -1,13 +1,11 @@
 mod block;
-mod chunk;
+mod execution_outcome;
 mod receipt;
 mod receipt_action;
-mod execution_outcome;
-mod receipt_action_arguments;
+mod chunk;
 
 pub use block::*;
-pub use chunk::*;
+pub use execution_outcome::*;
 pub use receipt::*;
 pub use receipt_action::*;
-pub use execution_outcome::*;
-pub use receipt_action_arguments::*; 
+pub use chunk::*; 
