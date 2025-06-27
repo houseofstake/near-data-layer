@@ -21,7 +21,7 @@ binaries:
 modules:
   - name: db_out
     kind: map
-    initialBlock: 201857081 # Updated to the correct block height where the data exists
+    initialBlock: 162542069 # May 2024
     # initialBlock: 198570538 # Receipt Actions Example Block
     inputs:
       - source: sf.near.type.v1.Block
