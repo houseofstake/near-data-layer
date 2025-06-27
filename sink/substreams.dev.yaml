@@ -5,7 +5,7 @@ package:
 
 imports:
   sql: https://github.com/streamingfast/substreams-sink-sql/releases/download/protodefs-v1.0.3/substreams-sink-sql-protodefs-v1.0.3.spkg
-  main: ../near-substreams-sql-sink-v0.1.0.spkg
+  main: ../substreams.yaml
 
 network: 'testnet'
 
