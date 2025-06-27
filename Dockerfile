@@ -21,9 +21,8 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
 # Set the working directory
 WORKDIR /app
 
-# Add wasm32-unknown-unknown target and ensure it's properly installed
-RUN rustup target add wasm32-unknown-unknown && \
-    rustup component add rust-std --target wasm32-unknown-unknown
+# Add wasm32-unknown-unknown target
+RUN rustup target add wasm32-unknown-unknown
 
 # Install buf for protobuf
 RUN curl -sSL \
