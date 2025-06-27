@@ -109,7 +109,7 @@ message ExecutionOutcome {
   string receipt_id = 11;
   string executed_in_block_hash = 12;
   repeated string logs = 13;
-  string results_base64 = 14; // The actual return value from the function call (base64 encoded, only for SuccessValue outcomes)
-  string results_json = 15; // JSON representation of the result if it can be parsed (only for SuccessValue outcomes)
-  string block_timestamp = 16; // Timestamp from the block header
+  string results_base64 = 14; // Base64 encoded result value for FunctionCall
+  string results_json = 15; // JSON representation if parseable
+  string block_timestamp = 16; 
 }
