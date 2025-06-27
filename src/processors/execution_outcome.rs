@@ -3,8 +3,9 @@ use crate::pb::sf::near::r#type::v1::{ExecutionOutcomeWithId, BlockHeader, Index
 use crate::pb::near::entities::v1::ExecutionOutcome as ExecutionOutcomeEntity;
 
 use crate::pushers::push_create_execution_outcome;
-use crate::processors::utils::bytes_to_string;
-use crate::processors::process_execution_outcome_result;
+// use crate::processors::process_execution_outcome_result;
+use crate::processors::utils::{bytes_to_string, format_timestamp};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 pub fn process_execution_outcome(
     changes: &mut DatabaseChanges,
@@ -30,6 +31,45 @@ pub fn process_execution_outcome(
             bytes_to_string(&tb.bytes).parse::<f32>().unwrap_or(0.0)
         } else {
             0.0
+        };
+
+        // Clean, fault-tolerant serialization for all statuses
+        let (result_value, result_json) = if let Some(status) = &outcome.status {
+            match status {
+                execution_outcome::Status::SuccessValue(inner) => {
+                    let result_value = BASE64.encode(&inner.value);
+                    let result_json = decode_and_format_result(&result_value);
+                    (result_value, result_json)
+                },
+                execution_outcome::Status::Failure(inner) => {
+                    // For failures, encode the error information
+                    let error_bytes = format!("{:?}", inner).as_bytes().to_vec();
+                    let result_value = BASE64.encode(&error_bytes);
+                    let result_json = format!("{{\"error_type\": \"ExecutionFailure\", \"details\": \"{:?}\"}}", inner);
+                    (result_value, result_json)
+                },
+                execution_outcome::Status::SuccessReceiptId(inner) => {
+                    // For receipt IDs, encode the receipt ID bytes
+                    let receipt_id_bytes = if let Some(id) = &inner.id {
+                        id.bytes.clone()
+                    } else {
+                        vec![]
+                    };
+                    let result_value = BASE64.encode(&receipt_id_bytes);
+                    let result_json = format!("{{\"receipt_id\": \"{}\", \"status\": \"SuccessReceiptId\"}}", 
+                        if let Some(id) = &inner.id { hex::encode(&id.bytes) } else { "".to_string() });
+                    (result_value, result_json)
+                },
+                execution_outcome::Status::Unknown(inner) => {
+                    // For unknown status, encode the debug information
+                    let unknown_bytes = format!("{:?}", inner).as_bytes().to_vec();
+                    let result_value = BASE64.encode(&unknown_bytes);
+                    let result_json = format!("{{\"status\": \"Unknown\", \"details\": \"{:?}\"}}", inner);
+                    (result_value, result_json)
+                },
+            }
+        } else {
+            ("".to_string(), "".to_string())
         };
 
         let execution_outcome_entity = ExecutionOutcomeEntity {
@@ -58,12 +98,41 @@ pub fn process_execution_outcome(
                 "".to_string()
             },
             logs: outcome.logs.clone(),
+            result_value,
+            result_json,
+            block_timestamp: format_timestamp(header.timestamp_nanosec),
         };
 
         let key = format!("{}-{}", header.height, receipt_id);
         push_create_execution_outcome(changes, &key, 0, &execution_outcome_entity);
+    }
+}
 
-        // Also process execution outcome results for successful function calls
-        process_execution_outcome_result(changes, execution_outcome, header, shard, receipt_id);
+// Helper function to decode and format result data (DRY approach)
+fn decode_and_format_result(result_value: &str) -> String {
+    match BASE64.decode(result_value) {
+        Ok(decoded_bytes) => {
+            // Try to parse as UTF-8 string first
+            match String::from_utf8(decoded_bytes.clone()) {
+                Ok(utf8_string) => {
+                    // Try to parse as JSON
+                    match serde_json::from_str::<serde_json::Value>(&utf8_string) {
+                        Ok(json_value) => serde_json::to_string(&json_value).unwrap_or(utf8_string),
+                        Err(_) => {
+                            // If not valid JSON, try to format as a readable string
+                            format!("{:?}", utf8_string)
+                        }
+                    }
+                }
+                Err(_) => {
+                    // If not valid UTF-8, format as hex
+                    format!("0x{}", hex::encode(&decoded_bytes))
+                }
+            }
+        }
+        Err(_) => {
+            // If base64 decode fails, store as hex
+            format!("0x{}", result_value)
+        }
     }
 } 
