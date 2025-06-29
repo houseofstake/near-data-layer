@@ -247,3 +247,4 @@ LEFT JOIN approve_proposal_snapshot_metadata AS aps
  	ON ap.proposal_id = pv.proposal_id 
  ORDER BY cp.proposal_created_at ASC
 ; 
+
