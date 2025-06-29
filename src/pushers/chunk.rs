@@ -9,10 +9,7 @@ pub fn push_create_chunk(
     key: &str,
     ordinal: u64,
     value: &Chunk,
-    // _value: &(), // Changed from &Chunk to &() since Chunk type is not available
 ) {
-    // Function commented out since Chunk type is not available in protobuf
-    /*
     changes
         .push_change("chunks", key, ordinal, Operation::Create)
         .change("height", (None, value.height))
@@ -32,5 +29,4 @@ pub fn push_create_chunk(
         .change("outgoing_receipts_root", (None, &value.outgoing_receipts_root))
         .change("tx_root", (None, &value.tx_root))
         .change("author", (None, &value.author));
-    */
 } 

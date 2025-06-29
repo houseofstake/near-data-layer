@@ -201,7 +201,6 @@ fn decode_and_format_result(result_value: &str) -> String {
             json!({
                 "status": "SuccessValue",
                 "error": "Failed to decode base64 data",
-                "raw_value": result_value,
                 "type": "decode_error"
             }).to_string()
         }

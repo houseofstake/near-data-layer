@@ -44,4 +44,3 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud
-      - ./substreams.yaml:/app/substreams.yaml

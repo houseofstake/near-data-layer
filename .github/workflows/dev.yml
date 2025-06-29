@@ -38,13 +38,15 @@ jobs:
         run: gcloud auth configure-docker ${{env.REGION}}-docker.pkg.dev
 
       - name: Build Docker image
-        run: docker build -t ${{env.DOCKER_IMAGE}} .
+        run: |
+          docker build -t ${{env.DOCKER_IMAGE}}:backfill .
 
       - name: Push Docker image to Artifact Registry
-        run: docker push ${{env.DOCKER_IMAGE}}
+        run: |
+          docker push ${{env.DOCKER_IMAGE}}:backfill
 
       - name: Restart Compute Engine VM
         run: |
-          gcloud compute instances reset indexer-vm \
+          gcloud compute instances reset backfill-indexer-vm \
             --zone=${{env.REGION}}-a \
             --project=${{env.PROJECT_ID}}
