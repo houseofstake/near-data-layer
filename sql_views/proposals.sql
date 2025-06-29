@@ -15,6 +15,10 @@ WITH execution_outcomes_prep AS (
  		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
  		, status
  		, logs
+<<<<<<< HEAD
+=======
+		, results_json
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  	FROM execution_outcomes
 )
 , receipt_actions_prep AS (
@@ -22,6 +26,11 @@ WITH execution_outcomes_prep AS (
  		decode(ra.args_base64, 'base64') AS args_decoded
  		, eo.status AS action_status
  		, eo.logs AS action_logs
+<<<<<<< HEAD
+=======
+		, eo.results_json 
+ 		, base58_encode(ra.receipt_id) AS receipt_id_encoded
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  		, ra.*
  	FROM receipt_actions AS ra
  	INNER JOIN execution_outcomes_prep AS eo
@@ -43,6 +52,7 @@ WITH execution_outcomes_prep AS (
 
  		--Proposal Details
  		, ra.receiver_id AS hos_contract_address
+<<<<<<< HEAD
  		, CASE 
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'proposal_id')::NUMERIC
@@ -63,6 +73,12 @@ WITH execution_outcomes_prep AS (
  		    THEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'metadata'->>'link'
  		    ELSE NULL 
  		  END AS proposal_url
+=======
+ 		, (REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::NUMERIC AS proposal_id 
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'title') AS proposal_title
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'description') AS proposal_description
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'link') AS proposal_url
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
 	 	, ra.signer_account_id AS proposal_creator_id
 	 	, ra.action_logs 
 	 	
@@ -72,26 +88,54 @@ WITH execution_outcomes_prep AS (
  	FROM receipt_actions_prep AS ra
  	WHERE
  		ra.method_name = 'create_proposal'
+<<<<<<< HEAD
 )
 , approve_proposal AS (
  	SELECT
  		base58_encode(ra.receipt_id) AS id
  		, base58_encode(ra.receipt_id) AS receipt_id
+=======
+ )
+ , approve_proposal AS (
+ 	SELECT
+ 		base58_encode(ra.receipt_id) AS id
+ 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		, base58_encode(ra.results_json::json->>'receipt_id') as snapshot_receipt_id --from associated on_get_snapshot method 
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  		, DATE(ra.block_timestamp) AS proposal_approved_date
  		, ra.block_timestamp AS proposal_approved_at
 
  		--Proposal Details
  		, ra.receiver_id AS hos_contract_address
+<<<<<<< HEAD
  		, CASE 
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'proposal_id')::NUMERIC
  		    ELSE NULL 
  		  END AS proposal_id
+=======
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  		, ra.signer_account_id AS proposal_approver_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra
  	WHERE
+<<<<<<< HEAD
  		ra.method_name = 'approve_proposal'
+=======
+ 		ra.method_name = 'approve_proposal' 
+ )
+ , approve_proposal_snapshot_metadata AS (
+ 	SELECT 
+ 		ap.proposal_id
+ 		, ap.receipt_id AS approve_proposal_receipt_id
+ 		, ra.receipt_id_encoded AS snapshot_receipt_id
+ 		, (ra.results_json::json->'snapshot_and_state'->>'total_venear')::NUMERIC as total_venear_amount
+ 		, (ra.results_json::json->>'voting_duration_ns')::NUMERIC as voting_duration_ns
+ 	FROM receipt_actions_prep AS ra
+ 	INNER JOIN approve_proposal AS ap 
+ 		ON ra.receipt_id_encoded = ap.snapshot_receipt_id
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  )
  , reject_proposal as (
  	SELECT
@@ -102,11 +146,15 @@ WITH execution_outcomes_prep AS (
 
  		--Proposal Details
  		, ra.receiver_id AS hos_contract_address
+<<<<<<< HEAD
  		, CASE 
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'proposal_id')::NUMERIC
  		    ELSE NULL 
  		  END AS proposal_id
+=======
+ 		, (convert_from(ra.args_decoded, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  		, ra.signer_account_id AS proposal_rejecter_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra
@@ -165,6 +213,13 @@ WITH execution_outcomes_prep AS (
  	, rp.proposal_rejected_at AS rejected_at 
  	, rp.proposal_rejecter_id AS rejecter_id 
  	
+<<<<<<< HEAD
+=======
+ 	--Additional Approval Metadata (Sourced from associated on_get_snapshot method)
+ 	, aps.voting_duration_ns 
+ 	, aps.total_venear_amount AS total_venear_at_approval
+
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  	--Vote Details 
  	, pv.listagg_distinct_voters
  	, COALESCE(pv.num_distinct_voters, 0) AS num_distinct_voters 
@@ -181,6 +236,11 @@ WITH execution_outcomes_prep AS (
  FROM create_proposal AS cp
  LEFT JOIN approve_proposal ap
  	ON cp.proposal_id = ap.proposal_id
+<<<<<<< HEAD
+=======
+LEFT JOIN approve_proposal_snapshot_metadata AS aps
+ 	ON cp.proposal_id = aps.proposal_id 
+>>>>>>> f04be5c (Updated proposals with 2 new cols)
  LEFT JOIN reject_proposal AS rp 
  	ON cp.proposal_id = rp.proposal_id 
  LEFT JOIN proposal_votes AS pv 
