@@ -49,21 +49,41 @@ WITH execution_outcomes_prep AS (
 )
 SELECT
 	MD5(CONCAT(base58_encode(ra.receipt_id), '_',  	
- 		REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id')) AS id 
+ 		CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		    ELSE NULL 
+ 		  END)) AS id 
  	, base58_encode(ra.receipt_id) AS receipt_id
  	, DATE(ra.block_timestamp) AS event_date
  	, ra.block_timestamp AS event_timestamp
  	, ra.receiver_id AS hos_contract_address 
  	, ra.predecessor_id AS delegator_id 
- 	, (CONVERT_FROM(ra.args, 'UTF8')::json->>'receiver_id') AS delegatee_id --null for the undelegate event 
+ 	, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'receiver_id'
+ 		    ELSE NULL 
+ 		  END AS delegatee_id --null for the undelegate event 
  	, ra.method_name AS delegate_method
-	, REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->>'event' AS delegate_event 
+	, CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'event'
+ 		    ELSE NULL 
+ 		  END AS delegate_event 
 	, CASE 
  	 	WHEN row_num = 1 
  	 	THEN TRUE 
  	 	ELSE FALSE END AS is_latest_delegator_event 
-	, REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id' AS owner_id
-	, (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'amount')::NUMERIC AS near_amount
+	, CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		    ELSE NULL 
+ 		  END AS owner_id
+	, CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount
 		
 	--Block Data 
 	, ra.block_height

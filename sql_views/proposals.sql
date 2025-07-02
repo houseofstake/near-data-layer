@@ -43,10 +43,26 @@ WITH execution_outcomes_prep AS (
 
  		--Proposal Details
  		, ra.receiver_id AS hos_contract_address
- 		, (REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::NUMERIC AS proposal_id 
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'title') AS proposal_title
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'description') AS proposal_description
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->'metadata'->>'link') AS proposal_url
+ 		, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS proposal_id 
+ 		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'metadata'->>'title'
+ 		    ELSE NULL 
+ 		  END AS proposal_title
+ 		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'metadata'->>'description'
+ 		    ELSE NULL 
+ 		  END AS proposal_description
+ 		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'metadata'->>'link'
+ 		    ELSE NULL 
+ 		  END AS proposal_url
 	 	, ra.signer_account_id AS proposal_creator_id
 	 	, ra.action_logs 
 	 	
@@ -66,7 +82,11 @@ WITH execution_outcomes_prep AS (
 
  		--Proposal Details
  		, ra.receiver_id AS hos_contract_address
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
+ 		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS proposal_id
  		, ra.signer_account_id AS proposal_approver_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra
@@ -82,7 +102,11 @@ WITH execution_outcomes_prep AS (
 
  		--Proposal Details
  		, ra.receiver_id AS hos_contract_address
- 		, (convert_from(ra.args_decoded, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
+ 		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS proposal_id
  		, ra.signer_account_id AS proposal_rejecter_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra
