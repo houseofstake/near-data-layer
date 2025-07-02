@@ -1,0 +1,6 @@
+[run]
+exclude-files = [
+    "src/pb/*.rs"
+]
+out = ["Html"]
+verbose = true 

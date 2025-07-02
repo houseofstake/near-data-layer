@@ -1,6 +1,7 @@
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use crate::pb::near::entities::v1::Receipt;
 
+#[allow(dead_code)]
 pub fn push_create_receipt(
     changes: &mut DatabaseChanges,
     key: &str,
