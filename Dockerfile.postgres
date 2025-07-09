@@ -1,0 +1,7 @@
+FROM postgres:14
+
+RUN apt-get update \
+    && apt-get install -y postgresql-plpython3-14 python3-pip \
+    && pip3 install --break-system-packages base58
+
+COPY sql_views/helper_queries/base58_encode.sql /docker-entrypoint-initdb.d/ 

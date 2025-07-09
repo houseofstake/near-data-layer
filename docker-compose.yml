@@ -1,7 +1,9 @@
 services:
   postgres:
     container_name: postgres-ssp2
-    image: postgres:14
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     ports:
       - "5432:5432"
     command: ["postgres", "-cshared_preload_libraries=pg_stat_statements"]

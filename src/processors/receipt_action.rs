@@ -4,6 +4,7 @@ use crate::pb::near::entities::v1::ReceiptAction as ReceiptActionEntity;
 
 use crate::pushers::push_create_receipt_action;
 use crate::processors::utils::{bytes_to_string, format_timestamp};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 pub fn process_receipt_actions(
     changes: &mut DatabaseChanges,
@@ -37,6 +38,33 @@ pub fn process_receipt_actions(
     {
         let (action_kind, method_name, gas, deposit, args_base64) = process_action(action);
         
+        // Try to decode the args and convert to JSON if possible
+        let args_json = match BASE64.decode(&args_base64) {
+            Ok(decoded_bytes) => {
+                // Try to parse as UTF-8 string first
+                match String::from_utf8(decoded_bytes.clone()) {
+                    Ok(utf8_string) => {
+                        // Try to parse as JSON
+                        match serde_json::from_str::<serde_json::Value>(&utf8_string) {
+                            Ok(json_value) => serde_json::to_string(&json_value).ok(),
+                            Err(_) => {
+                                // If not valid JSON, try to format as a readable string
+                                Some(format!("{:?}", utf8_string))
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        // If not valid UTF-8, format as hex
+                        Some(format!("0x{}", hex::encode(&decoded_bytes)))
+                    }
+                }
+            }
+            Err(_) => {
+                // If base64 decode fails, store as hex
+                Some(format!("0x{}", args_base64))
+            }
+        };
+        
         let unique_id = format!("{}-{}-{}", header.height, receipt_id, action_index);
         
         let receipt_action = ReceiptActionEntity {
@@ -64,6 +92,7 @@ pub fn process_receipt_actions(
             gas,
             deposit,
             args_base64,
+            args_json: args_json.unwrap_or_default(),
             action_index: action_index as u32,
             block_timestamp: format_timestamp(header.timestamp_nanosec),
         };
@@ -93,7 +122,7 @@ fn process_action(action: &Action) -> (String, String, u64, String, String) {
             if let Some(dep) = &func_call.deposit {
                 deposit = bytes_to_string(&dep.bytes);
             }
-            args_base64 = base64::encode(&func_call.args);
+            args_base64 = BASE64.encode(&func_call.args);
         }
         Some(action::Action::Transfer(transfer)) => {
             action_kind = "Transfer".to_string();

@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS receipt_actions (
     gas BIGINT NOT NULL,
     deposit TEXT NOT NULL,
     args_base64 TEXT NOT NULL,
+    args_json TEXT, -- JSON representation if parseable
     action_index INTEGER NOT NULL,
     block_timestamp TIMESTAMP NOT NULL
 );
@@ -89,5 +90,8 @@ CREATE TABLE IF NOT EXISTS execution_outcomes (
     status TEXT NOT NULL,
     outcome_receipt_ids TEXT[] NOT NULL,
     executed_in_block_hash TEXT NOT NULL,
-    logs TEXT[]
+    logs TEXT[],
+    results_base64 TEXT, -- Base64 encoded return value 
+    results_json TEXT, -- JSON representation if parseable 
+    block_timestamp TIMESTAMP 
 );

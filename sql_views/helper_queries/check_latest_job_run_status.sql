@@ -1,3 +1,4 @@
+/* If creating materialized views, this can be used to check the statuc of scheduled pg_cron jobs per materialized view. */
 WITH cron_jobs AS (
 	SELECT 
 		jobid

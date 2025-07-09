@@ -90,6 +90,7 @@ message ReceiptAction {
   uint64 gas = 13;
   string deposit = 14;
   string args_base64 = 15; // Base64 encoded args for FunctionCall
+  string args_json = 19; // JSON representation if parseable
   uint32 action_index = 16; // Index of this action within the receipt
   string block_timestamp = 18; // Timestamp from the block header
 }
@@ -108,4 +109,7 @@ message ExecutionOutcome {
   string receipt_id = 11;
   string executed_in_block_hash = 12;
   repeated string logs = 13;
+  string results_base64 = 14; // Base64 encoded result value for FunctionCall
+  string results_json = 15; // JSON representation if parseable
+  string block_timestamp = 16; 
 }

@@ -25,6 +25,7 @@ pub fn push_create_receipt_action(
         .change("gas", (None, value.gas))
         .change("deposit", (None, &value.deposit))
         .change("args_base64", (None, &value.args_base64))
+        .change("args_json", (None, &value.args_json))
         .change("action_index", (None, value.action_index))
         .change("block_timestamp", (None, &value.block_timestamp));
 }
