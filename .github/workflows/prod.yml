@@ -45,3 +45,10 @@ jobs:
           gcloud compute instances reset indexer-vm \
             --zone=${{env.REGION}}-a \
             --project=${{env.PROJECT_ID}}
+
+      - name: Docker cleanup on VM
+        run: |
+          gcloud compute ssh indexer-vm \
+            --zone=${{env.REGION}}-a \
+            --project=${{env.PROJECT_ID}} \
+            --command="sleep 600 && sudo docker image prune --force && sudo docker container prune --force"
