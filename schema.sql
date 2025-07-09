@@ -1,6 +1,4 @@
-CREATE SCHEMA IF NOT EXISTS backfill;
-
-CREATE TABLE IF NOT EXISTS backfill.cursors
+CREATE TABLE IF NOT EXISTS cursors
 (
     id         text not null constraint cursor_pk primary key,
     cursor     text,
@@ -8,7 +6,7 @@ CREATE TABLE IF NOT EXISTS backfill.cursors
     block_id   text
 );
 
-CREATE TABLE IF NOT EXISTS backfill.blocks (
+CREATE TABLE IF NOT EXISTS blocks (
     height BIGINT PRIMARY KEY,
     hash TEXT NOT NULL,
     prev_hash TEXT NOT NULL,
@@ -57,7 +55,7 @@ CREATE TABLE IF NOT EXISTS backfill.blocks (
 --     PRIMARY KEY (receipt_id)
 -- );
 
-CREATE TABLE IF NOT EXISTS backfill.receipt_actions (
+CREATE TABLE IF NOT EXISTS receipt_actions (
     id TEXT PRIMARY KEY,
     block_height BIGINT NOT NULL,
     receipt_id TEXT NOT NULL,
@@ -79,7 +77,7 @@ CREATE TABLE IF NOT EXISTS backfill.receipt_actions (
     block_timestamp TIMESTAMP NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS backfill.execution_outcomes (
+CREATE TABLE IF NOT EXISTS execution_outcomes (
     receipt_id TEXT PRIMARY KEY,
     block_height BIGINT NOT NULL,
     block_hash TEXT NOT NULL,

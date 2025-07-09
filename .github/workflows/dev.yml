@@ -39,14 +39,14 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{env.DOCKER_IMAGE}}:backfill .
+          docker build -t ${{env.DOCKER_IMAGE}} .
 
       - name: Push Docker image to Artifact Registry
         run: |
-          docker push ${{env.DOCKER_IMAGE}}:backfill
+          docker push ${{env.DOCKER_IMAGE}}
 
       - name: Restart Compute Engine VM
         run: |
-          gcloud compute instances reset backfill-indexer-vm \
+          gcloud compute instances reset indexer-vm \
             --zone=${{env.REGION}}-a \
             --project=${{env.PROJECT_ID}}

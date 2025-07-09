@@ -26,5 +26,5 @@ else
     export ENDPOINT=$(gcloud secrets versions access latest --secret=PINAX_ENDPOINT_${ENV})
 
     # Construct DSN
-    export DSN="postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/postgres?sslmode=disable&schema=backfill"
+    export DSN="postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/postgres?sslmode=disable"
 fi
