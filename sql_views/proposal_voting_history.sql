@@ -39,8 +39,16 @@ WITH execution_outcomes_prep AS (
 )
 , proposal_metadata AS (
 	SELECT 
-		(convert_from(ra.args, 'UTF8')::json->'metadata'->>'title') AS proposal_name
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'proposal_id')::NUMERIC AS proposal_id 
+		CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(convert_from(ra.args, 'UTF8'))->'metadata'->>'title'
+ 		    ELSE NULL 
+ 		  END AS proposal_name
+		, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS proposal_id 
 	FROM receipt_actions_prep AS ra
 	WHERE 
 		ra.method_name = 'create_proposal'
@@ -53,21 +61,53 @@ WITH execution_outcomes_prep AS (
 		, ra.block_timestamp           AS voted_at 
 	
 		--IDs 																					
-		, (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::NUMERIC AS proposal_id
+		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS proposal_id
 		, ra.receiver_id    											 AS hos_contract_address 
 		, ra.predecessor_id 											 AS voter_id 
 	
 		/* Voter Data Per Proposal */
 		--Votes Info
-		, (convert_from(ra.args, 'UTF8')::json->>'vote')::NUMERIC                                				AS vote_option
-		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'account_balance')::NUMERIC 			    AS voting_power
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'balance'->>'near_balance')::NUMERIC         AS near_balance 
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'balance'->>'extra_venear_balance')::NUMERIC AS extra_venear_balance
+		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->>'vote')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS vote_option
+		, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS voting_power
+		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->'v_account'->'V0'->'balance'->>'near_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_balance 
+		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->'v_account'->'V0'->'balance'->>'extra_venear_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS extra_venear_balance
 	
     	--Delegation Info
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegation'->>'account_id')        					  AS delegator_account_id 
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegated_balance'->>'near_balance')::NUMERIC         AS delegated_near_balance
-		, (convert_from(ra.args, 'UTF8')::json->'v_account'->'V0'->'delegated_balance'->>'extra_venear_balance')::NUMERIC AS delegated_extra_venear_balance
+		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(convert_from(ra.args, 'UTF8'))->'v_account'->'V0'->'delegation'->>'account_id'
+ 		    ELSE NULL 
+ 		  END AS delegator_account_id 
+		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->'v_account'->'V0'->'delegated_balance'->>'near_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS delegated_near_balance
+		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->'v_account'->'V0'->'delegated_balance'->>'extra_venear_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS delegated_extra_venear_balance
 	
 		--Logs 
 		, ra.logs
@@ -78,7 +118,11 @@ WITH execution_outcomes_prep AS (
 	FROM receipt_actions_prep AS ra
  	WHERE 
 		ra.method_name = 'vote'
-		AND (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::NUMERIC IS NOT NULL
+		AND CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		  END IS NOT NULL
 	ORDER BY proposal_id ASC, voted_at ASC 
 )
 , latest_vote_per_proposal_and_voter AS (

@@ -46,7 +46,11 @@ WITH execution_outcomes_prep AS (
 
  	--Proposal Details
  	, ra.receiver_id           												   AS hos_contract_address
- 	, (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric           AS proposal_id
+ 	, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->>'proposal_id')::numeric
+ 		    ELSE NULL 
+ 		  END AS proposal_id
  	, ra.signer_account_id     												   AS proposal_approver_id
 
  	--Block details

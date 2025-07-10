@@ -47,13 +47,25 @@ WITH execution_outcomes_prep AS (
   		base58_encode(ra.receipt_id) AS id 
   		, base58_encode(ra.receipt_id) AS receipt_id
   		, ra.block_timestamp AS event_timestamp
-  		, COALESCE((REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->>'event'), 'lockup_deployed') AS event_type
+  		, COALESCE(CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'event'
+ 		    ELSE NULL 
+ 		  END, 'lockup_deployed') AS event_type
   		, ra.method_name 
   		, ra.event_status
     	, ra.signer_account_id AS account_id
     	, ra.predecessor_id AS hos_contract_address 
-    	, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'lockup_deposit')::NUMERIC AS near_amount 
-    	, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance --Field exists in the logs, but is ALWAYS NULL  
+    	, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'lockup_deposit')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount 
+    	, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS locked_near_balance --Field exists in the logs, but is ALWAYS NULL  
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
   	FROM receipt_actions_prep AS ra
@@ -72,13 +84,25 @@ WITH execution_outcomes_prep AS (
   		base58_encode(ra.receipt_id) AS id 
   		, base58_encode(ra.receipt_id) AS receipt_id
   		, ra.block_timestamp AS event_timestamp
-  		, COALESCE((REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->>'event'), 'lockup_lock_near') AS event_type --COALESCE required WHEN log IS failed; RETURNS NULL otherwise 
+  		, COALESCE(CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'event'
+ 		    ELSE NULL 
+ 		  END, 'lockup_lock_near') AS event_type --COALESCE required WHEN log IS failed; RETURNS NULL otherwise 
   		, ra.method_name 
   		, ra.event_status
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
-  		, (REPLACE(ra.logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC AS locked_near_balance 
+		, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount 
+  		, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS locked_near_balance 
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
   	FROM receipt_actions_prep AS ra
@@ -104,18 +128,21 @@ WITH execution_outcomes_prep AS (
         , ra.block_height
         -- Extract event type (ft_mint or ft_burn)
         , MAX(CASE 
-            WHEN (REPLACE(log, 'EVENT_JSON:', '')::json->>'event') IN ('ft_mint', 'ft_burn') 
-            THEN (REPLACE(log, 'EVENT_JSON:', '')::json->>'event') 
+            WHEN safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->>'error' IS NULL
+            AND safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->>'event' IN ('ft_mint', 'ft_burn') 
+            THEN safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->>'event' 
         	END) AS ft_event_type
         -- Extract locked_near_balance from lockup_update event
         , MAX(CASE 
-            WHEN (REPLACE(log, 'EVENT_JSON:', '')::json->>'event') = 'lockup_update' 
-            THEN (REPLACE(log, 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC 
+            WHEN safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->>'error' IS NULL
+            AND safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->>'event' = 'lockup_update' 
+            THEN (safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC 
         	END) AS locked_near_balance
         -- Extract amount from ft_mint or ft_burn event
         , MAX(CASE 
-            WHEN (REPLACE(log, 'EVENT_JSON:', '')::json->>'event') IN ('ft_mint', 'ft_burn') 
-            THEN (REPLACE(log, 'EVENT_JSON:', '')::json->'data'->0->>'amount')::NUMERIC 
+            WHEN safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->>'error' IS NULL
+            AND safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->>'event' IN ('ft_mint', 'ft_burn') 
+            THEN (safe_json_parse(REPLACE(log, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC 
         	END) AS near_amount
     FROM receipt_actions_prep AS ra
     CROSS JOIN LATERAL UNNEST(ra.logs) AS log
@@ -149,15 +176,31 @@ WITH execution_outcomes_prep AS (
  , delegations_undelegations AS (
    	SELECT
    		MD5(CONCAT(base58_encode(ra.receipt_id), '_',  	
- 			REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id')) AS id 
+ 			CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		    ELSE NULL 
+ 		  END)) AS id 
   		, base58_encode(ra.receipt_id) AS receipt_id
   		, ra.block_timestamp AS event_timestamp
-  		, COALESCE(ra.method_name || '_' || (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->>'event')::TEXT, ra.method_name) AS event_type 
+  		, COALESCE(ra.method_name || '_' || CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'event'
+ 		    ELSE NULL 
+ 		  END, ra.method_name) AS event_type 
   		, ra.method_name 
   		, ra.event_status
-    	, COALESCE(REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'owner_id', ra.signer_account_id) AS account_id
+    	, COALESCE(CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		    ELSE NULL 
+ 		  END, ra.signer_account_id) AS account_id
     	, ra.receiver_id AS hos_contract_address 
-	    , (REPLACE(unnested_logs, 'EVENT_JSON:', '')::json->'data'->0->>'amount')::NUMERIC AS near_amount
+	    , CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount
 	    , NULL::NUMERIC AS locked_near_balance --This does NOT exist FOR delegate_all AND undelegate events 
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash 
@@ -184,7 +227,11 @@ WITH execution_outcomes_prep AS (
   		, ra.event_status
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
+		, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
         , ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
@@ -209,7 +256,11 @@ WITH execution_outcomes_prep AS (
   		, ra.event_status
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, (CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8')::json->>'amount')::NUMERIC AS near_amount 
+		, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash

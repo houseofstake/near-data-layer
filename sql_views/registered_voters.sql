@@ -55,8 +55,16 @@ execution_outcomes_prep AS (
   		ra.block_timestamp
   		, args_decoded
     	, base58_encode(ra.receipt_id) 																		            AS receipt_id
-    	, COALESCE((REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'owner_id'), ra.signer_account_id) AS registered_voter_id
-    	, (REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'amount')::NUMERIC 					        AS initial_voting_power
+    	, COALESCE(CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		    ELSE NULL 
+ 		  END, ra.signer_account_id) AS registered_voter_id
+    	, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS initial_voting_power
     	, ra.receiver_id 																				                AS hos_contract_address
     	, ra.block_height
     	, base58_encode(ra.block_hash) AS block_hash
@@ -68,9 +76,21 @@ execution_outcomes_prep AS (
 	SELECT
 		ra.block_timestamp
 		, base58_encode(ra.receipt_id) 																	    			AS receipt_id
-		, COALESCE(REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'account_id', ra.signer_account_id) AS registered_voter_id
-		, (REPLACE(ra.action_logs[1], 'EVENT_JSON:', '')::json->'data'->0->>'locked_near_balance')::NUMERIC             AS current_voting_power_logs
-    	, (convert_from(ra.args_decoded, 'UTF8')::json->'update'->'V1'->>'locked_near_balance')::NUMERIC                AS current_voting_power_args
+		, COALESCE(CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
+ 		    ELSE NULL 
+ 		  END, ra.signer_account_id) AS registered_voter_id
+		, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS current_voting_power_logs
+    	, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'update'->'V1'->>'locked_near_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS current_voting_power_args
     	, ra.receiver_id 																								AS hos_contract_address
     	, ra.block_height
     	, base58_encode(ra.block_hash) 																					AS block_hash																				
@@ -88,7 +108,7 @@ execution_outcomes_prep AS (
 		delegator_id 
 		, delegatee_id
 		, near_amount
-	FROM delegation_events_v2 
+	FROM delegation_events
 	WHERE 
 		is_latest_delegator_event = TRUE 
 		AND delegate_method = 'delegate_all'
