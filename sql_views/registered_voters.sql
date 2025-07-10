@@ -108,7 +108,7 @@ execution_outcomes_prep AS (
 		delegator_id 
 		, delegatee_id
 		, near_amount
-	FROM delegation_events_v2 
+	FROM delegation_events
 	WHERE 
 		is_latest_delegator_event = TRUE 
 		AND delegate_method = 'delegate_all'
