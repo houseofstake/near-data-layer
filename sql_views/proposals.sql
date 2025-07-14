@@ -117,6 +117,16 @@ WITH execution_outcomes_prep AS (
  			THEN (safe_json_parse(ra.results_json)->>'voting_duration_ns')::NUMERIC
  			ELSE NULL
  		   END AS voting_duration_ns 
+		, CASE 
+ 			WHEN safe_json_parse(ra.results_json)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json)->>'voting_start_time_ns')::NUMERIC
+ 			ELSE NULL
+ 		   END AS voting_start_time_ns 
+ 		, CASE 
+ 			WHEN safe_json_parse(ra.results_json)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json)->>'creation_time_ns')::NUMERIC
+ 			ELSE NULL
+ 		   END AS creation_time_ns 
  	FROM receipt_actions_prep AS ra
  	INNER JOIN approve_proposal AS ap 
  		ON ra.receipt_id_encoded = ap.snapshot_receipt_id
@@ -182,11 +192,12 @@ WITH execution_outcomes_prep AS (
  		END AS has_votes 
  	
  	--Creation Details
- 	, cp.proposal_created_at AS created_at 
+ 	, COALESCE(TO_TIMESTAMP(aps.creation_time_ns / 1e9) AT TIME ZONE 'UTC', cp.proposal_created_at) AS created_at 
  	, cp.proposal_creator_id AS creator_id 
  	
  	--Approval Details 
  	, ap.proposal_approved_at AS approved_at 
+    , TO_TIMESTAMP(aps.voting_start_time_ns / 1e9) AT TIME ZONE 'UTC' AS voting_start_at 
  	, ap.proposal_approver_id AS approver_id 
  	
  	--Rejection Details 
