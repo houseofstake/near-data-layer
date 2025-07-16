@@ -1,4 +1,4 @@
-CREATE SCHEMA IF NOT EXISTS fastnear;
+CREATE SCHEMA IF NOT EXISTS fastnear; -- to update: run based on db_schema in config.toml
 
 CREATE TABLE IF NOT EXISTS cursors
 (

@@ -114,7 +114,7 @@ The indexer creates the following tables in the configured schema:
 ## Commands
 
 - `cargo run -- init` - Initialize database tables from schema.sql
-- `cargo run -- start` - Start the indexer from configured start block
+- `cargo run -- start [--start-block <block_num>] [--num-threads <threads>]` - Start the indexer from configured start block (or optional start block) with configured threads (or optional thread count)
 
 ## Development
 

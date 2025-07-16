@@ -31,17 +31,13 @@ services:
       - DATABASE_URL=postgres://dev-node:insecure-change-me-in-prod@postgres:5432/dev-node?sslmode=disable
     depends_on:
       - postgres
-# TO UPDATE:
-  # near-sink-sql:
-  #   container_name: near-sink-sql
-  #   platform: linux/amd64
-  #   build: .
-  #   depends_on:
-  #     - postgres
-  #   environment:
-  #     ENDPOINT: ${ENDPOINT}
-  #     DSN: ${DSN}
-  #     SUBSTREAMS_API_KEY: ${SUBSTREAMS_API_KEY}
-  #     GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
-  #   volumes:
-  #     - ~/.config/gcloud:/root/.config/gcloud
+  near-sink-sql:
+    container_name: near-sink-sql
+    platform: linux/amd64
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
+    volumes:
+      - ~/.config/gcloud:/root/.config/gcloud
