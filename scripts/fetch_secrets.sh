@@ -10,6 +10,7 @@ else
     ENV_PATH="$(dirname "$0")/../.env"
 fi
 
+# TO UPDATE:
 # Check for .env file
 if [ -f "$ENV_PATH" ]; then
     echo "Using .env file at: $ENV_PATH"

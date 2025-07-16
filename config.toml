@@ -1,0 +1,15 @@
+# Indexer Configuration
+start_block = 183500000
+batch_size = 10
+poll_interval = 1
+max_retries = 3
+retry_delay = 5
+num_threads = 64
+
+# Other
+venear_contracts = [
+    "r-1745564650.testnet",
+    "r-1746683627.testnet", 
+    "r-1748895584.testnet"
+]
+log_level = "info"
