@@ -38,9 +38,6 @@ services:
     depends_on:
       - postgres
     environment:
-      ENDPOINT: ${ENDPOINT}
-      DSN: ${DSN}
-      SUBSTREAMS_API_KEY: ${SUBSTREAMS_API_KEY}
       GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
     volumes:
       - ~/.config/gcloud:/root/.config/gcloud

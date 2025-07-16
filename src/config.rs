@@ -1,74 +1,60 @@
-use anyhow::Result;
-use serde_json::Value;
+use config::{Config, ConfigError, Environment, File};
+use serde::Deserialize;
+use dotenvy;
 
-const DEV_CONFIG: &str = include_str!("../config/dev.json");
-
-#[derive(Debug)]
+#[derive(Deserialize, Clone)]
 pub struct Settings {
-    pub venear_contract_ids: Vec<String>,
+    // Database
+    pub db_host: String,
+    pub db_port: u16,
+    pub db_database: String,
+    pub db_username: String,
+    pub db_password: String,
+    pub db_max_connections: u32,
+    pub db_schema: String,
+    // NEAR API
+    pub api_url: String,
+    pub api_auth_token: Option<String>,
+    pub api_chain_id: String,
+    pub api_finality: String,
+    // Indexer
+    pub start_block: u64,
+    pub batch_size: u32,
+    pub poll_interval: u64,
+    pub max_retries: u32,
+    pub retry_delay: u64,
+    pub num_threads: u64,
+    // Other
+    pub venear_contracts: Vec<String>,
+    pub log_level: String,
 }
 
 impl Settings {
-    pub fn new() -> Result<Self> {
-        let config_str = match std::env::var("ENV").unwrap_or_else(|_| "DEV".to_string()).as_str() {
-            "DEV" => DEV_CONFIG,
-            _ => DEV_CONFIG,
-        };
+    pub fn new() -> Result<Self, ConfigError> {
+        // Load .env file if present, so env vars are available for config
+        dotenvy::dotenv().ok();
 
-        let config: Value = serde_json::from_str(config_str)
-            .map_err(|e| anyhow::anyhow!("Failed to parse config: {}", e))?;
+        let config = Config::builder()
+            .add_source(File::with_name("config.toml").required(true))
+            .add_source(Environment::with_prefix("INDEXER"))
+            .build()?;
 
-        let contract_ids = config["venear_contract_ids"]
-            .as_array()
-            .ok_or_else(|| anyhow::anyhow!("venear_contract_ids must be an array"))?
-            .iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect();
-
-        Ok(Settings {
-            venear_contract_ids: contract_ids,
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_settings_new_success() {
-        let result = Settings::new();
-        assert!(result.is_ok());
-        
-        let settings = result.unwrap();
-        assert!(!settings.venear_contract_ids.is_empty());
+        config.try_deserialize()
     }
 
-    #[test]
-    fn test_settings_contract_ids_not_empty() {
-        let settings = Settings::new().unwrap();
-        // Verify that we have some contract IDs loaded
-        assert!(!settings.venear_contract_ids.is_empty());
-        
-        // Verify that all contract IDs are valid strings
-        for contract_id in &settings.venear_contract_ids {
-            assert!(!contract_id.is_empty());
-            assert!(contract_id.contains('.'));
-        }
+    pub fn database_url(&self) -> String {
+        format!(
+            "postgresql://{}:{}@{}:{}/{}?options=-csearch_path={}",
+            self.db_username,
+            self.db_password,
+            self.db_host,
+            self.db_port,
+            self.db_database,
+            self.db_schema
+        )
     }
 
-    #[test]
-    fn test_env_variable_handling() {
-        // Test with no ENV variable set (should default to DEV)
-        let result = Settings::new();
-        assert!(result.is_ok());
-        
-        // Test with ENV=DEV
-        std::env::set_var("ENV", "DEV");
-        let result = Settings::new();
-        assert!(result.is_ok());
-        
-        // Clean up
-        std::env::remove_var("ENV");
+    pub fn is_venear_contract(&self, account_id: &str) -> bool {
+        self.venear_contracts.iter().any(|id| account_id.contains(id))
     }
 }

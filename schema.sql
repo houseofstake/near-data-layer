@@ -1,3 +1,5 @@
+CREATE SCHEMA IF NOT EXISTS fastnear; -- to update: run based on db_schema in config.toml
+
 CREATE TABLE IF NOT EXISTS cursors
 (
     id         text not null constraint cursor_pk primary key,
@@ -16,44 +18,6 @@ CREATE TABLE IF NOT EXISTS blocks (
     total_supply TEXT NOT NULL
 ); 
 
--- DEPRECATED: Chunks data is no longer needed
--- Keeping schema in case we need it in the future
-
--- CREATE TABLE IF NOT EXISTS chunks (
---     height BIGINT NOT NULL,
---     chunk_hash TEXT NOT NULL,
---     prev_block_hash TEXT NOT NULL,
---     outcome_root TEXT NOT NULL,
---     prev_state_root TEXT NOT NULL,
---     encoded_merkle_root TEXT NOT NULL,
---     encoded_length BIGINT NOT NULL,
---     height_created BIGINT NOT NULL,
---     height_included BIGINT NOT NULL,
---     shard_id BIGINT NOT NULL,
---     gas_used BIGINT NOT NULL,
---     gas_limit BIGINT NOT NULL,
---     validator_reward TEXT NOT NULL,
---     balance_burnt TEXT NOT NULL,
---     outgoing_receipts_root TEXT NOT NULL,
---     tx_root TEXT NOT NULL,
---     author TEXT NOT NULL,
---     PRIMARY KEY (chunk_hash)
--- );
-
--- DEPRECATED: Receipts table is no longer needed
--- Keeping schema in case we need it in the future
-
--- CREATE TABLE IF NOT EXISTS receipts (
---     height BIGINT NOT NULL,
---     block_hash TEXT NOT NULL,
---     chunk_hash TEXT NOT NULL,
---     receipt_id TEXT NOT NULL,
---     predecessor_id TEXT NOT NULL,
---     receiver_id TEXT NOT NULL,
---     receipt_kind TEXT NOT NULL,
---     author TEXT NOT NULL,
---     PRIMARY KEY (receipt_id)
--- );
 
 CREATE TABLE IF NOT EXISTS receipt_actions (
     id TEXT PRIMARY KEY,
@@ -72,7 +36,7 @@ CREATE TABLE IF NOT EXISTS receipt_actions (
     gas BIGINT NOT NULL,
     deposit TEXT NOT NULL,
     args_base64 TEXT NOT NULL,
-    args_json TEXT, -- JSON representation if parseable
+    args_json JSON,
     action_index INTEGER NOT NULL,
     block_timestamp TIMESTAMP NOT NULL
 );
@@ -91,7 +55,6 @@ CREATE TABLE IF NOT EXISTS execution_outcomes (
     outcome_receipt_ids TEXT[] NOT NULL,
     executed_in_block_hash TEXT NOT NULL,
     logs TEXT[],
-    results_base64 TEXT, -- Base64 encoded return value 
-    results_json TEXT, -- JSON representation if parseable 
-    block_timestamp TIMESTAMP 
+    results_json JSON,
+    block_timestamp TIMESTAMP
 );

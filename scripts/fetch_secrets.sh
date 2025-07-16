@@ -1,9 +1,6 @@
 #!/bin/bash
 
-# Set environment (default to dev if not specified)
-ENV=${ENVIRONMENT:-DEV}
-
-# Check if we're running in Docker
+# Check if we're running in Docker or if .env exists
 if [ -f "/.dockerenv" ]; then
     ENV_PATH="/app/.env"
 else
@@ -19,12 +16,13 @@ if [ -f "$ENV_PATH" ]; then
 else
     echo "No local .env file found, fetching secrets from GCP Secret Manager"
     # Fetch secrets from Secret Manager
-    export DATABASE_USER=$(gcloud secrets versions access latest --secret=DATABASE_USER)
-    export DATABASE_PASSWORD=$(gcloud secrets versions access latest --secret=DATABASE_PASSWORD)
-    export DATABASE_HOST=$(gcloud secrets versions access latest --secret=DATABASE_HOST_${ENV})
-    export SUBSTREAMS_API_KEY=$(gcloud secrets versions access latest --secret=PINAX_API_KEY)
-    export ENDPOINT=$(gcloud secrets versions access latest --secret=PINAX_ENDPOINT_${ENV})
-
-    # Construct DSN
-    export DSN="postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:5432/postgres?sslmode=disable"
+    export INDEXER_DB_HOST=$(gcloud secrets versions access latest --secret=DATABASE_HOST)
+    export INDEXER_DB_USERNAME=$(gcloud secrets versions access latest --secret=DATABASE_USER)
+    export INDEXER_DB_PASSWORD=$(gcloud secrets versions access latest --secret=DATABASE_PASSWORD)
+    export INDEXER_API_AUTH_TOKEN=$(gcloud secrets versions access latest --secret=FASTNEAR_API_KEY)
 fi
+
+# Set RUST_LOG if not already set
+export RUST_LOG=${RUST_LOG:-${INDEXER_LOG_LEVEL:-info}}
+
+echo "Environment variables configured for NEAR indexer" 
