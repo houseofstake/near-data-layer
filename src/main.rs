@@ -60,7 +60,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             tracing::info!("Starting NEAR blockchain indexer");
-            tracing::info!("Configuration: {:?}", settings);
 
             let mut indexer = Indexer::new(settings).await?;
             indexer.initialize().await?;

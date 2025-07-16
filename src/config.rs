@@ -1,7 +1,6 @@
 use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 use dotenvy;
-use std::fmt;
 
 #[derive(Deserialize, Clone)]
 pub struct Settings {
@@ -59,29 +58,3 @@ impl Settings {
         self.venear_contracts.iter().any(|id| account_id.contains(id))
     }
 }
-
-impl fmt::Debug for Settings {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Settings")
-            .field("db_host", &self.db_host)
-            .field("db_port", &self.db_port)
-            .field("db_database", &self.db_database)
-            .field("db_username", &self.db_username)
-            .field("db_password", &"[REDACTED]")
-            .field("db_max_connections", &self.db_max_connections)
-            .field("db_schema", &self.db_schema)
-            .field("api_url", &self.api_url)
-            .field("api_auth_token", &self.api_auth_token.as_ref().map(|_| "[REDACTED]"))
-            .field("api_chain_id", &self.api_chain_id)
-            .field("api_finality", &self.api_finality)
-            .field("start_block", &self.start_block)
-            .field("batch_size", &self.batch_size)
-            .field("poll_interval", &self.poll_interval)
-            .field("max_retries", &self.max_retries)
-            .field("retry_delay", &self.retry_delay)
-            .field("num_threads", &self.num_threads)
-            .field("venear_contracts", &self.venear_contracts)
-            .field("log_level", &self.log_level)
-            .finish()
-    }
-} 
