@@ -90,13 +90,15 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_latest_cursor(&self) -> Result<Option<(String, u64)>> {
-        let row = sqlx::query("SELECT id, block_num FROM cursors ORDER BY block_num DESC LIMIT 1")
+    /// Get cursor for a specific app version
+    pub async fn get_cursor_for_version(&self, app_version: &str) -> Result<Option<u64>> {
+        let row = sqlx::query("SELECT block_num FROM cursors WHERE id = $1")
+            .bind(app_version)
             .fetch_optional(&self.pool)
             .await?;
 
         match row {
-            Some(row) => Ok(Some((row.get::<String, _>("id"), row.get::<i64, _>("block_num") as u64))),
+            Some(row) => Ok(Some(row.get::<i64, _>("block_num") as u64)),
             None => Ok(None),
         }
     }

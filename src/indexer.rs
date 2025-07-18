@@ -41,6 +41,7 @@ impl Indexer {
         
         // Determine the starting block height
         let start_block_height = self.determine_start_block(cli_start_block).await?;
+        info!("App version: {}", self.settings.app_version);
         info!("Starting from block: {}", start_block_height);
         info!("veNEAR contracts: {:?}", self.settings.venear_contracts);
 
@@ -112,7 +113,7 @@ impl Indexer {
 
     /// Determine the starting block height based on priority:
     /// 1. CLI argument (highest precedence)
-    /// 2. Cursor from database aka last processed block
+    /// 2. Cursor from database for this app version
     /// 3. Config file (lowest precedence)
     async fn determine_start_block(&self, cli_start_block: Option<u64>) -> Result<u64> {
         // Priority 1: CLI argument (if provided)
@@ -124,19 +125,19 @@ impl Indexer {
             return Ok(start_block);
         }
         
-        // Priority 2: Check cursor in database
-        if let Some((_, last_processed_block)) = self.processor.get_latest_cursor().await? {
+        // Priority 2: Check cursor in database for this app version
+        if let Some(last_processed_block) = self.processor.get_cursor_for_app_version().await? {
             let resume_block = last_processed_block + 1;
             info!(
-                "Resuming from block {} (last processed: {})",
-                resume_block, last_processed_block
+                "Resuming from block {} for app version '{}' (last processed: {})",
+                resume_block, self.settings.app_version, last_processed_block
             );
             Ok(resume_block)
         } else {
-            // Priority 3: No cursor found, use config start block
+            // Priority 3: No cursor found for this version, use config start block
             info!(
-                "No cursor found, using config start block: {}",
-                self.settings.start_block
+                "No cursor found for app version '{}', using config start block: {}",
+                self.settings.app_version, self.settings.start_block
             );
             Ok(self.settings.start_block)
         }
@@ -182,7 +183,7 @@ impl Indexer {
             // Update cursor
             if let Err(e) = self
                 .processor
-                .update_cursor("main", block_height, &block_hash.to_string())
+                .update_cursor(&self.settings.app_version, block_height, &block_hash.to_string())
                 .await
             {
                 error!("Failed to update cursor for block {}: {}", block_height, e);

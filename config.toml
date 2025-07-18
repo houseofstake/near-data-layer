@@ -33,3 +33,4 @@ venear_contracts = [
     "r-1748895584.testnet"
 ]
 log_level = "info"
+app_version = "v1.0.0"
