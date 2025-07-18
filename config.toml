@@ -13,7 +13,7 @@ db_schema = "fastnear"
 db_max_connections = 10
 
 # Indexer Configuration
-start_block = 199560000 # first proposal block 199579301 
+start_block = 205749074 # first proposal block 199579301 
 batch_size = 10
 poll_interval = 1
 max_retries = 3
