@@ -77,8 +77,8 @@ impl Processor {
         self.database.initialize_tables(&self.settings).await
     }
 
-    pub async fn get_latest_cursor(&self) -> Result<Option<(String, u64)>> {
-        self.database.get_latest_cursor().await
+    pub async fn get_cursor_for_app_version(&self) -> Result<Option<u64>> {
+        self.database.get_cursor_for_version(&self.settings.app_version).await
     }
 
     pub async fn update_cursor(&self, id: &str, block_num: u64, block_hash: &str) -> Result<()> {

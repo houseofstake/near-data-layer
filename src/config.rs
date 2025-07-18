@@ -27,6 +27,8 @@ pub struct Settings {
     // Other
     pub venear_contracts: Vec<String>,
     pub log_level: String,
+    // App version (from config file)
+    pub app_version: String,
 }
 
 impl Settings {

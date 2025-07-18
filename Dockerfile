@@ -44,7 +44,7 @@ RUN cargo build --release
 
 # Make scripts executable and create entrypoint
 RUN chmod +x ./scripts/*.sh && \
-    printf '#!/bin/bash\nset -e\n\necho "Starting NEAR Indexer container..."\n\necho "Fetching configuration..."\nsource ./scripts/fetch_secrets.sh\n\necho "Initializing database..."\n./target/release/near-indexer init || echo "Database already initialized or init failed - continuing"\n\necho "Starting indexer..."\nexec ./target/release/near-indexer start --start-block 199560000\n' > entrypoint.sh && \
+    printf '#!/bin/bash\nset -e\n\necho "Starting NEAR Indexer container..."\n\necho "Fetching configuration..."\nsource ./scripts/fetch_secrets.sh\n\necho "Initializing database..."\n./target/release/near-indexer init || echo "Database already initialized or init failed - continuing"\n\necho "Starting indexer..."\nexec ./target/release/near-indexer start\n' > entrypoint.sh && \
     chmod +x entrypoint.sh
 
 # Set environment and default command
