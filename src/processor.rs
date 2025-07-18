@@ -37,8 +37,8 @@ impl Processor {
         }
     }
 
-    /// Extract base64 data from ExecutionStatusView and convert to JSON
-    /// Returns None if no base64 data is available or Some(JSON) if data exists
+    /// Extract data from ExecutionStatusView and convert to JSON
+    /// Returns None if no data is available or Some(JSON) if data exists
     fn extract_results_json_from_status(status: &ExecutionStatusView) -> Option<serde_json::Value> {
         match status {
             ExecutionStatusView::SuccessValue(base64_data) => {
@@ -50,12 +50,31 @@ impl Processor {
                     Some(Self::args_base64_to_json(&base64_str))
                 }
             }
-            _ => None, // Other status types don't contain base64 data
+            ExecutionStatusView::SuccessReceiptId(receipt_id) => {
+                // Store the receipt ID as JSON for tracking cross-receipt relationships
+                Some(serde_json::json!({
+                    "receipt_id": receipt_id.to_string(),
+                    "status_type": "SuccessReceiptId"
+                }))
+            }
+            ExecutionStatusView::Failure(failure_error) => {
+                // Extract failure information for debugging and analysis
+                Some(serde_json::json!({
+                    "error": failure_error.to_string(),
+                    "status_type": "Failure"
+                }))
+            }
+            ExecutionStatusView::Unknown => {
+                // Mark unknown status for investigation
+                Some(serde_json::json!({
+                    "status_type": "Unknown"
+                }))
+            }
         }
     }
 
     pub async fn initialize_tables(&self) -> Result<()> {
-        self.database.initialize_tables().await
+        self.database.initialize_tables(&self.settings).await
     }
 
     pub async fn get_latest_cursor(&self) -> Result<Option<(String, u64)>> {

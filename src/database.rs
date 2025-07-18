@@ -54,7 +54,7 @@ pub struct Database {
 
 impl Database {
     pub async fn new(settings: Settings) -> Result<Self> {
-        let pool = PgPoolOptions::new()
+        let pool: sqlx::Pool<sqlx::Postgres> = PgPoolOptions::new()
             .max_connections(settings.db_max_connections)
             .acquire_timeout(std::time::Duration::from_secs(30))
             .connect(&settings.database_url())
@@ -64,10 +64,13 @@ impl Database {
         Ok(Self { pool })
     }
 
-    pub async fn initialize_tables(&self) -> Result<()> {
+    pub async fn initialize_tables(&self, settings: &Settings) -> Result<()> {
         // Read schema from schema.sql file
         let schema_content = std::fs::read_to_string("schema.sql")
             .map_err(|e| anyhow::anyhow!("Failed to read schema.sql: {}", e))?;
+        
+        // Replace schema name placeholder with actual schema name from config
+        let schema_content = schema_content.replace("{SCHEMA_NAME}", &settings.db_schema);
         
         // Split the schema into individual statements
         let statements: Vec<&str> = schema_content
@@ -83,7 +86,7 @@ impl Database {
             }
         }
         
-        info!("Database tables initialized from schema.sql");
+        info!("Database tables initialized from schema.sql with schema: {}", settings.db_schema);
         Ok(())
     }
 
