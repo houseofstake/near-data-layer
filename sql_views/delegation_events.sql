@@ -17,7 +17,7 @@
 CREATE VIEW delegation_events AS 
 WITH execution_outcomes_prep AS (
 	SELECT
- 		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
+ 		receipt_id 
  		, status
  		, logs
  	FROM execution_outcomes 
@@ -35,7 +35,7 @@ WITH execution_outcomes_prep AS (
  	WHERE
  		ra.action_kind = 'FunctionCall'
  		AND ra.receiver_id IN (           --House of Stake contracts
- 			'v.r-1748895584.testnet'      --veNEAR contract 
+ 			'v.r-1748895584.testnet'      --veNEAR contract --
  			, 'vote.r-1748895584.testnet' --Voting contract 
  			)
 )
@@ -48,13 +48,13 @@ WITH execution_outcomes_prep AS (
 		ra.method_name IN ('delegate_all', 'undelegate')
 )
 SELECT
-	MD5(CONCAT(base58_encode(ra.receipt_id), '_',  	
+	MD5(CONCAT(ra.receipt_id, '_',  	
  		CASE 
  		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
  		    ELSE NULL 
  		  END)) AS id 
- 	, base58_encode(ra.receipt_id) AS receipt_id
+ 	, ra.receipt_id
  	, DATE(ra.block_timestamp) AS event_date
  	, ra.block_timestamp AS event_timestamp
  	, ra.receiver_id AS hos_contract_address 
@@ -87,7 +87,7 @@ SELECT
 		
 	--Block Data 
 	, ra.block_height
- 	, base58_encode(ra.block_hash) AS block_hash
+ 	, ra.block_hash
  FROM delegate_undelegate_events AS ra
  LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  	ON TRUE

@@ -16,7 +16,7 @@
 CREATE VIEW proposal_voting_history AS
 WITH execution_outcomes_prep AS (
 	SELECT 
-		SPLIT_PART(receipt_id, '-', 2) AS receipt_id 
+		receipt_id 
 		, status
 		, logs
 	FROM execution_outcomes 
@@ -55,10 +55,10 @@ WITH execution_outcomes_prep AS (
 )
 , proposal_voting_history AS (
 	SELECT 
-		base58_encode(ra.receipt_id)   AS id  
-		, base58_encode(ra.receipt_id) AS receipt_id 
-		, DATE(ra.block_timestamp)     AS voted_date 
-		, ra.block_timestamp           AS voted_at 
+		ra.receipt_id AS id  
+		, ra.receipt_id AS receipt_id 
+		, DATE(ra.block_timestamp) AS voted_date 
+		, ra.block_timestamp AS voted_at 
 	
 		--IDs 																					
 		, CASE 
@@ -66,8 +66,8 @@ WITH execution_outcomes_prep AS (
  		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->>'proposal_id')::NUMERIC
  		    ELSE NULL 
  		  END AS proposal_id
-		, ra.receiver_id    											 AS hos_contract_address 
-		, ra.predecessor_id 											 AS voter_id 
+		, ra.receiver_id AS hos_contract_address 
+		, ra.predecessor_id AS voter_id 
 	
 		/* Voter Data Per Proposal */
 		--Votes Info
@@ -114,7 +114,7 @@ WITH execution_outcomes_prep AS (
 	
 		--Block Data 
 		, ra.block_height 
-		, base58_encode(ra.block_hash) AS block_hash 
+		, ra.block_hash 
 	FROM receipt_actions_prep AS ra
  	WHERE 
 		ra.method_name = 'vote'
@@ -128,7 +128,7 @@ WITH execution_outcomes_prep AS (
 , latest_vote_per_proposal_and_voter AS (
 	SELECT 
 		*
-		, ROW_NUMBER() OVER (PARTITION BY proposal_id, voter_id ORDER BY voted_at DESC) as row_num 
+		, ROW_NUMBER() OVER (PARTITION BY proposal_id, voter_id ORDER BY voted_at DESC) AS row_num 
 	FROM proposal_voting_history 
 )
 SELECT 
