@@ -11,8 +11,8 @@
 
 CREATE VIEW proposals AS 
 WITH execution_outcomes_prep AS (
- 	SELECT
- 		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
+ 	SELECT 
+ 		receipt_id
  		, status
  		, logs
 		, results_json
@@ -24,7 +24,6 @@ WITH execution_outcomes_prep AS (
  		, eo.status AS action_status
  		, eo.logs AS action_logs
 		, eo.results_json
-		, base58_encode(ra.receipt_id) AS receipt_id_encoded
  		, ra.*
  	FROM receipt_actions AS ra
  	INNER JOIN execution_outcomes_prep AS eo
@@ -39,8 +38,8 @@ WITH execution_outcomes_prep AS (
 )
 , create_proposal AS ( 
  	SELECT
- 		base58_encode(ra.receipt_id) AS id
- 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		ra.receipt_id AS id
+ 		, ra.receipt_id AS receipt_id
  		, DATE(ra.block_timestamp) AS proposal_created_date
  		, ra.block_timestamp AS proposal_created_at
 
@@ -71,19 +70,19 @@ WITH execution_outcomes_prep AS (
 	 	
 	 	--Block Data 
 	 	, ra.block_height
- 		, base58_encode(ra.block_hash) AS block_hash
+ 		, ra.block_hash
  	FROM receipt_actions_prep AS ra
  	WHERE
  		ra.method_name = 'create_proposal'
 )
 , approve_proposal AS (
  	SELECT
- 		base58_encode(ra.receipt_id) AS id
- 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		ra.receipt_id AS id
+ 		, ra.receipt_id AS receipt_id
 		--From associated on_get_snapshot method 
 		, CASE 
- 			WHEN safe_json_parse(ra.results_json)->>'error' IS NULL
- 			THEN base58_encode(safe_json_parse(ra.results_json)->>'receipt_id') 
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN safe_json_parse(ra.results_json::TEXT)->>'receipt_id'
  			ELSE NULL
  		  END AS snapshot_receipt_id 
  		, DATE(ra.block_timestamp) AS proposal_approved_date
@@ -106,35 +105,35 @@ WITH execution_outcomes_prep AS (
  	SELECT 
  		ap.proposal_id
  		, ap.receipt_id AS approve_proposal_receipt_id
- 		, ra.receipt_id_encoded AS snapshot_receipt_id
+ 		, ra.receipt_id AS snapshot_receipt_id
         , CASE 
- 			WHEN safe_json_parse(ra.results_json)->>'error' IS NULL
- 			THEN (safe_json_parse(ra.results_json)->'snapshot_and_state'->>'total_venear')::NUMERIC
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->'snapshot_and_state'->>'total_venear')::NUMERIC
  			ELSE NULL
  		  END AS total_venear_amount 
  	    , CASE 
- 			WHEN safe_json_parse(ra.results_json)->>'error' IS NULL
- 			THEN (safe_json_parse(ra.results_json)->>'voting_duration_ns')::NUMERIC
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->>'voting_duration_ns')::NUMERIC
  			ELSE NULL
  		   END AS voting_duration_ns 
-		, CASE 
- 			WHEN safe_json_parse(ra.results_json)->>'error' IS NULL
- 			THEN (safe_json_parse(ra.results_json)->>'voting_start_time_ns')::NUMERIC
+ 		, CASE 
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->>'voting_start_time_ns')::NUMERIC
  			ELSE NULL
  		   END AS voting_start_time_ns 
  		, CASE 
- 			WHEN safe_json_parse(ra.results_json)->>'error' IS NULL
- 			THEN (safe_json_parse(ra.results_json)->>'creation_time_ns')::NUMERIC
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->>'creation_time_ns')::NUMERIC
  			ELSE NULL
  		   END AS creation_time_ns 
  	FROM receipt_actions_prep AS ra
  	INNER JOIN approve_proposal AS ap 
- 		ON ra.receipt_id_encoded = ap.snapshot_receipt_id
+ 		ON ra.receipt_id = ap.snapshot_receipt_id
 )
  , reject_proposal as (
  	SELECT
- 		base58_encode(ra.receipt_id) AS id
- 		, base58_encode(ra.receipt_id) AS receipt_id
+ 		ra.receipt_id AS id
+ 		, ra.receipt_id AS receipt_id
  		, DATE(ra.block_timestamp) AS proposal_rejected_date
  		, ra.block_timestamp AS proposal_rejected_at
 
@@ -164,7 +163,6 @@ WITH execution_outcomes_prep AS (
 		, SUM(CASE WHEN vote_option = 0 THEN voting_power ELSE 0 END) AS for_voting_power
  		, SUM(CASE WHEN vote_option = 1 THEN voting_power ELSE 0 END) AS against_voting_power
  		, SUM(CASE WHEN vote_option = 2 THEN voting_power ELSE 0 END) AS abstain_voting_power
-
  	FROM proposal_voting_history 
  	GROUP BY 1
  )
@@ -197,7 +195,7 @@ WITH execution_outcomes_prep AS (
  	
  	--Approval Details 
  	, ap.proposal_approved_at AS approved_at 
-    , TO_TIMESTAMP(aps.voting_start_time_ns / 1e9) AT TIME ZONE 'UTC' AS voting_start_at 
+ 	, TO_TIMESTAMP(aps.voting_start_time_ns / 1e9) AT TIME ZONE 'UTC' AS voting_start_at 
  	, ap.proposal_approver_id AS approver_id 
  	
  	--Rejection Details 

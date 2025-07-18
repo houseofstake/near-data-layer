@@ -17,7 +17,7 @@
 CREATE VIEW user_activities AS
 WITH execution_outcomes_prep AS (
 	SELECT
-		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
+		receipt_id
 		, status
 		, logs
 	FROM execution_outcomes
@@ -44,8 +44,8 @@ WITH execution_outcomes_prep AS (
 --------------------
 , on_lockup_deployed AS (
   	SELECT
-  		base58_encode(ra.receipt_id) AS id 
-  		, base58_encode(ra.receipt_id) AS receipt_id
+  		ra.receipt_id AS id 
+  		, ra.receipt_id
   		, ra.block_timestamp AS event_timestamp
   		, COALESCE(CASE 
  		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
@@ -67,7 +67,7 @@ WITH execution_outcomes_prep AS (
  		    ELSE NULL 
  		  END AS locked_near_balance --Field exists in the logs, but is ALWAYS NULL  
     	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
+    	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'on_lockup_deployed'
@@ -81,8 +81,8 @@ WITH execution_outcomes_prep AS (
 -------------
 , lock_near AS (
   	SELECT
-  		base58_encode(ra.receipt_id) AS id 
-  		, base58_encode(ra.receipt_id) AS receipt_id
+  		ra.receipt_id AS id 
+  		, ra.receipt_id
   		, ra.block_timestamp AS event_timestamp
   		, COALESCE(CASE 
  		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
@@ -104,7 +104,7 @@ WITH execution_outcomes_prep AS (
  		    ELSE NULL 
  		  END AS locked_near_balance 
     	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
+    	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'lock_near'
@@ -117,14 +117,14 @@ WITH execution_outcomes_prep AS (
     --There are 2 event_json arrays per on_lockup_update method; 1st event is on_lockup_update; 2nd is ft_mint. 
 	-- Single pass over logs array to extract all needed values
     SELECT 
-    	base58_encode(receipt_id) AS id
-    	, base58_encode(receipt_id) AS receipt_id 
+    	ra.receipt_id AS id
+    	, ra.receipt_id
         , ra.block_timestamp AS event_timestamp
         , ra.method_name 
         , ra.event_status 
         , ra.signer_account_id AS account_id 
         , ra.receiver_id AS hos_contract_address 
-        , base58_encode(ra.block_hash) AS block_hash 
+        , ra.block_hash AS block_hash 
         , ra.block_height
         -- Extract event type (ft_mint or ft_burn)
         , MAX(CASE 
@@ -175,13 +175,13 @@ WITH execution_outcomes_prep AS (
  -------------------------------
  , delegations_undelegations AS (
    	SELECT
-   		MD5(CONCAT(base58_encode(ra.receipt_id), '_',  	
+   		MD5(CONCAT(ra.receipt_id, '_',  	
  			CASE 
  		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
  		    ELSE NULL 
  		  END)) AS id 
-  		, base58_encode(ra.receipt_id) AS receipt_id
+  		, ra.receipt_id
   		, ra.block_timestamp AS event_timestamp
   		, COALESCE(ra.method_name || '_' || CASE 
  		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
@@ -203,7 +203,7 @@ WITH execution_outcomes_prep AS (
  		  END AS near_amount
 	    , NULL::NUMERIC AS locked_near_balance --This does NOT exist FOR delegate_all AND undelegate events 
     	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash 
+    	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  		ON TRUE
@@ -219,8 +219,8 @@ WITH execution_outcomes_prep AS (
 ---------------------
 , begin_unlock_near AS ( 
   	SELECT 
-  		base58_encode(ra.receipt_id) AS id 
-  		, base58_encode(ra.receipt_id) AS receipt_id
+  		ra.receipt_id AS id 
+  		, ra.receipt_id
   		, ra.block_timestamp AS event_timestamp
   		, method_name AS event_type 
   		, ra.method_name 
@@ -234,7 +234,7 @@ WITH execution_outcomes_prep AS (
  		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
         , ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
+    	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'begin_unlock_near'
@@ -248,8 +248,8 @@ WITH execution_outcomes_prep AS (
 ------------------------
 , relock_pending_near AS ( 
   	SELECT
-  		base58_encode(ra.receipt_id) AS id 
-  		, base58_encode(ra.receipt_id) AS receipt_id
+  		ra.receipt_id AS id 
+  		, ra.receipt_id
   		, ra.block_timestamp AS event_timestamp
   		, method_name AS event_type 
   		, ra.method_name 
@@ -263,7 +263,7 @@ WITH execution_outcomes_prep AS (
  		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
     	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
+    	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'lock_pending_near'

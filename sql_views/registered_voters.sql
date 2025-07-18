@@ -18,7 +18,7 @@ WITH
 /* Sourcing Registered Voters */
 execution_outcomes_prep AS (
 	SELECT
-		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
+		receipt_id
 		, status
 		, logs
 	FROM execution_outcomes
@@ -26,8 +26,8 @@ execution_outcomes_prep AS (
 , receipt_actions_prep AS (
 	SELECT
 		decode(ra.args_base64, 'base64') AS args_decoded
-		, eo.status                      AS action_status
-		, eo.logs                        AS action_logs
+		, eo.status AS action_status
+		, eo.logs AS action_logs
 		, ra.*
 	FROM receipt_actions AS ra
 	INNER JOIN execution_outcomes_prep AS eo
@@ -54,7 +54,7 @@ execution_outcomes_prep AS (
   	SELECT
   		ra.block_timestamp
   		, args_decoded
-    	, base58_encode(ra.receipt_id) 																		            AS receipt_id
+    	, ra.receipt_id
     	, COALESCE(CASE 
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
@@ -65,9 +65,9 @@ execution_outcomes_prep AS (
  		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
  		    ELSE NULL 
  		  END AS initial_voting_power
-    	, ra.receiver_id 																				                AS hos_contract_address
+    	, ra.receiver_id AS hos_contract_address
     	, ra.block_height
-    	, base58_encode(ra.block_hash) AS block_hash
+    	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'storage_deposit'
@@ -75,7 +75,7 @@ execution_outcomes_prep AS (
 , current_voting_power_from_locks_unlocks AS (
 	SELECT
 		ra.block_timestamp
-		, base58_encode(ra.receipt_id) 																	    			AS receipt_id
+		, ra.receipt_id
 		, COALESCE(CASE 
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
@@ -91,11 +91,11 @@ execution_outcomes_prep AS (
  		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'update'->'V1'->>'locked_near_balance')::NUMERIC
  		    ELSE NULL 
  		  END AS current_voting_power_args
-    	, ra.receiver_id 																								AS hos_contract_address
+    	, ra.receiver_id AS hos_contract_address
     	, ra.block_height
-    	, base58_encode(ra.block_hash) 																					AS block_hash																				
+    	, ra.block_hash																		
     	, ra.action_logs
-    	, ROW_NUMBER() OVER (PARTITION BY signer_account_id ORDER BY block_timestamp DESC) 				                AS row_num
+    	, ROW_NUMBER() OVER (PARTITION BY signer_account_id ORDER BY block_timestamp DESC) AS row_num
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'on_lockup_update'
@@ -147,7 +147,7 @@ execution_outcomes_prep AS (
 , proposal_participation AS (
 	SELECT
 		registered_voter_id
-		, SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC      AS num_recently_approved_proposals_voted_on
+		, SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC AS num_recently_approved_proposals_voted_on
 		, SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC / 10 AS proposal_participation_rate 
 	FROM registered_voter_proposal_voting_history
 	GROUP BY 1
@@ -155,14 +155,14 @@ execution_outcomes_prep AS (
 , final AS (
 /* Registered Voters + Current Voting Power */
 	SELECT
-		MD5(base58_encode(ra.receipt_id)) AS id
- 		, base58_encode(ra.receipt_id) AS receipt_id
- 		, DATE(ra.block_timestamp) 	   AS registered_date
- 		, ra.block_timestamp      	   AS registered_at
+		MD5(ra.receipt_id) AS id
+ 		, ra.receipt_id
+ 		, DATE(ra.block_timestamp) AS registered_date
+ 		, ra.block_timestamp AS registered_at
 
  		--Deploy Lockup Details
- 		, ra.signer_account_id         AS registered_voter_id
- 		, ra.receiver_id       		   AS hos_contract_address
+ 		, ra.signer_account_id AS registered_voter_id
+ 		, ra.receiver_id AS hos_contract_address
  		, CASE
 	 		WHEN cvp.row_num IS NULL THEN FALSE
 	 		ELSE TRUE
@@ -174,14 +174,14 @@ execution_outcomes_prep AS (
  			END AS is_actively_delegating --TRUE if the latest delegation event for this account = 'delegate_all'
 
  		--Voting Power
-		, COALESCE(dvp.delegations_voting_power, 0)                         AS voting_power_from_delegations
+		, COALESCE(dvp.delegations_voting_power, 0) AS voting_power_from_delegations
 		, COALESCE(cvp.current_voting_power_logs, ivp.initial_voting_power) AS voting_power_from_locks_unlocks
- 		, COALESCE(ivp.initial_voting_power, 0)                             AS initial_voting_power
+ 		, COALESCE(ivp.initial_voting_power, 0) AS initial_voting_power
  		, pp.proposal_participation_rate
 
  		--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)
  		, ra.block_height
- 		, base58_encode(ra.block_hash) AS block_hash
+ 		, ra.block_hash
 
 	FROM registered_voters_prep AS ra 						    --Sourced from the deploy_lockup event
 	LEFT JOIN current_voting_power_from_locks_unlocks AS cvp 	--Sourced from the voter's most recent on_lockup_update event
