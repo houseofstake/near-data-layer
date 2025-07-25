@@ -8,9 +8,9 @@ services:
       - "5432:5432"
     command: ["postgres", "-cshared_preload_libraries=pg_stat_statements"]
     environment:
-      POSTGRES_USER: dev-node
-      POSTGRES_PASSWORD: insecure-change-me-in-prod
-      POSTGRES_DB: dev-node
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
@@ -20,17 +20,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 15
-  pgweb:
-    container_name: pgweb-ssp2
-    image: sosedoff/pgweb:0.11.12
-    restart: on-failure
-    ports:
-      - "8081:8081"
-    command: ["pgweb", "--bind=0.0.0.0", "--listen=8081", "--binary-codec=hex"]
-    environment:
-      - DATABASE_URL=postgres://dev-node:insecure-change-me-in-prod@postgres:5432/dev-node?sslmode=disable
-    depends_on:
-      - postgres
   near-sink-sql:
     container_name: near-sink-sql
     platform: linux/amd64

@@ -7,8 +7,8 @@
 # db_host = set_in_env
 db_port = 5432
 db_database = "postgres"
-# db_username = set_in_env
-# db_password = set_in_env
+db_username = "postgres"
+db_password = "postgres"
 db_schema = "fastnear"
 db_max_connections = 10
 
