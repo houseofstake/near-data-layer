@@ -6,9 +6,11 @@
 # Database Configuration
 db_host = "postgres"  # Docker service name for postgres
 db_port = 5432
-db_database = "dev-node"  # Match the POSTGRES_DB from docker-compose
-db_username = "dev-node"  # Match the POSTGRES_USER from docker-compose
-db_password = "insecure-change-me-in-prod"  # Match the POSTGRES_PASSWORD from docker-compose
+
+db_database = "postgres"
+db_username = "postgres"
+db_password = "postgres"
+
 db_schema = "fastnear"
 db_max_connections = 10
 

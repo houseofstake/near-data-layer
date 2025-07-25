@@ -1,140 +1,158 @@
-# NEAR Blockchain Indexer
+# NEAR Data Layer
 
-A Rust-based blockchain indexer for NEAR protocol, focusing on veNEAR contract interactions. Extracts and stores receipt actions and execution outcomes in PostgreSQL with configurable schema support.
+## NEAR Blockchain Indexer
 
-## Features
+A Rust-based blockchain indexer for NEAR protocol that extracts veNEAR contract interactions and stores them in PostgreSQL.
 
-- **Configurable Schema**: Set PostgreSQL schema via environment variables
-- **veNEAR Contract Focus**: Filters and indexes veNEAR contract interactions
-- **Comprehensive Data Extraction**: Captures receipt actions, execution outcomes, and block data
-- **JSON Processing**: Converts base64 args to JSON with validation
-- **Docker Support**: Full containerized deployment
-- **Resumable Indexing**: Cursor-based progress tracking
+### Architecture
 
-## Quick Start
+![Data Layer Architecture](docs/data-layer-architecture-diagram.png)
 
 ### Prerequisites
-- Rust
-- Docker & Docker Compose
-- PostgreSQL
 
-### Run with Docker
+- **Rust** (1.70 or higher) - Install from [rustup.rs](https://rustup.rs/)
+- **PostgreSQL** (12 or higher)
+- **Docker & Docker Compose** (for containerized setup)
+
+### Quick Start
+
 ```bash
-# Start the full stack
+# Start with Docker
 docker-compose up -d
 
-# View logs
-docker-compose logs -f indexer-run
+# Or run locally
+cargo run -- init    # Initialize database
+cargo run -- start   # Start indexing
 ```
 
-### Run Locally
-```bash
-# Build
-cargo build --release
+#### Docker Containers
 
-# Initialize database tables
-cargo run -- init
+The docker-compose setup builds two containers:
 
-# Start indexer
-cargo run -- start
-```
+- **`postgres`**: PostgreSQL database (builds from `Dockerfile.postgres`)
+- **`near-sink-sql`**: The indexer application (builds from main `Dockerfile`)
 
-## Configuration
+### Configuration
 
-### Environment Variables
-
-Set these environment variables or use a `.env` file (all prefixed with `INDEXER_`):
-
-```bash
-# Database Configuration
-INDEXER_DB_HOST=localhost
-INDEXER_DB_PORT=5432
-INDEXER_DB_DATABASE=near_indexer
-INDEXER_DB_USERNAME=postgres
-INDEXER_DB_PASSWORD=password
-INDEXER_DB_MAX_CONNECTIONS=10
-INDEXER_DB_SCHEMA=fastnear
-
-# NEAR API Configuration
-INDEXER_API_URL=https://api.fastnear.com
-INDEXER_API_AUTH_TOKEN=your_api_token_here
-INDEXER_API_CHAIN_ID=testnet
-INDEXER_API_FINALITY=final
-
-# Indexer Settings
-INDEXER_START_BLOCK=183500000
-INDEXER_BATCH_SIZE=10
-INDEXER_POLL_INTERVAL=1
-INDEXER_MAX_RETRIES=3
-INDEXER_RETRY_DELAY=5
-INDEXER_NUM_THREADS=64
-INDEXER_LOG_LEVEL=info
-```
-
-### Configuration File
-
-Alternatively, modify `config.toml`:
+Edit `config.toml` for basic settings:
 
 ```toml
-# Database Configuration
 db_host = "localhost"
 db_port = 5432
 db_database = "near_indexer"
 db_username = "postgres"
 db_password = "password"
-db_max_connections = 10
 db_schema = "fastnear"
 
-# Indexer Configuration
 start_block = 183500000
 batch_size = 10
-poll_interval = 1
-max_retries = 3
-retry_delay = 5
 num_threads = 64
 
-# veNEAR Contracts
+# Important: Change this to trigger a backfill
+app_version = "1.0.0"
+
 venear_contracts = [
     "r-1745564650.testnet",
-    "r-1746683627.testnet", 
-    "r-1748895584.testnet"
+    "r-1746683627.testnet"
 ]
-log_level = "info"
 ```
 
-## Database Schema
+The indexer only processes transactions that interact with contracts listed in `venear_contracts`, filtering out all other blockchain activity.
 
-The indexer creates the following tables in the configured schema:
+#### Environment Variables
 
-- **`blocks`**: Block headers and metadata
-- **`receipt_actions`**: Function call actions with decoded arguments
-- **`execution_outcomes`**: Transaction execution results
-- **`cursors`**: Indexing progress tracking
+You can override any configuration setting using environment variables with the `INDEXER_` prefix. Create a `.env` file in the project root or set environment variables directly:
 
-## Commands
-
-- `cargo run -- init` - Initialize database tables from schema.sql
-- `cargo run -- start [--start-block <block_num>] [--num-threads <threads>]` - Start the indexer from configured start block (or optional start block) with configured threads (or optional thread count)
-
-## Development
-
-### Testing
 ```bash
-# Run tests
-cargo test
-
-# Check with clippy
-cargo clippy
-
-# Format code
-cargo fmt
+# .env file example
+INDEXER_DB_HOST=production-db.example.com
+INDEXER_DB_PASSWORD=secure_password
+INDEXER_START_BLOCK=184000000
+INDEXER_APP_VERSION=1.0.1
+INDEXER_LOG_LEVEL=debug
 ```
 
-### Docker Build
-```bash
-# Build image
-docker build -t near-indexer .
+Environment variables take precedence over `config.toml` values, making it easy to override settings for different deployments without modifying the configuration file.
 
-# Run container
-docker run -e INDEXER_DB_HOST=host.docker.internal near-indexer
+### Block Tracking & Backfills
+
+The indexer tracks its progress using a cursor system that stores the last processed block for each app version. This enables reliable resumption after restarts and controlled backfilling when needed.
+
+#### How Progress Tracking Works
+
+The `cursors` table maintains indexing state with:
+- **id**: App version from configuration 
+- **block_num**: Last successfully processed block height
+- **block_id**: Hash of the last processed block
+
+When starting, the indexer determines which block to begin from using this precedence:
+1. **CLI argument**: `--start-block <number>` (highest priority)
+2. **Database cursor**: Last processed block for the current app version
+3. **Configuration file**: `start_block` value (fallback)
+
+#### Normal Operations
+
+During normal operations (deployments without logic changes, VM restarts), the indexer automatically resumes from its last cursor position. This ensures continuous processing without gaps or duplicate work.
+
+#### Triggering Backfills
+
+To reprocess historical data, you must manually increment the `app_version` in your configuration:
+
+1. **Update version**: Change `app_version` in `config.toml` (e.g., "1.0.0" → "1.0.1")
+2. **Set starting point**: Update `start_block` to your desired starting block
+3. **Deploy**: Restart the indexer with the new configuration
+
+The new app version creates a separate cursor entry, allowing the indexer to process from your specified starting block while preserving the original processing state.
+
+### Source Files
+
+- **`main.rs`**: Entry point, CLI argument parsing, command dispatch
+- **`config.rs`**: Configuration loading from file and environment variables
+- **`database.rs`**: PostgreSQL connection, table operations, cursor management
+- **`indexer.rs`**: Main indexing logic, block fetching, starting block determination
+- **`processor.rs`**: Receipt processing, data extraction, filtering veNEAR contracts
+
+### Commands
+
+- `cargo run -- init` - Initialize database by creating tables and views
+- `cargo run -- start [--start-block <block>] [--num-threads <threads>]` - Start indexing
+
+## SQL Views & Analytics
+
+The indexer creates analytical SQL views for querying governance and veNEAR data. All views are located in the `sql_views/` directory.
+
+### Available Views
+
+- **`proposals`** - Comprehensive governance proposal data with voting metadata, approval status, and vote counts
+- **`registered_voters`** - veNEAR token holders eligible to participate in governance voting
+- **`proposal_voting_history`** - Individual vote records showing user voting patterns and choices
+- **`user_activities`** - Summary of user interactions with veNEAR contracts and governance
+- **`delegation_events`** - Vote delegation actions and delegate relationships
+- **`approved_proposals`** - Proposals that have passed governance review and are eligible for public voting
+- **`proposal_non_voters`** - Analysis of eligible voters who did not participate in specific proposals
+
+### Helper Functions
+
+The `helper_queries/` directory contains utility functions:
+
+- **`safe_json_parse.sql`** - Parse JSON with error handling
+
+### Usage Examples
+
+```sql
+-- Get all active proposals with vote counts
+SELECT proposal_id, proposal_name, vote_count_for, vote_count_against 
+FROM proposals 
+WHERE proposal_status = 'Active';
+
+-- Find top voters by participation
+SELECT voter_account, COUNT(*) as votes_cast
+FROM proposal_voting_history 
+GROUP BY voter_account 
+ORDER BY votes_cast DESC;
+
+-- Check delegation relationships
+SELECT delegator, delegate, delegation_timestamp
+FROM delegation_events 
+ORDER BY delegation_timestamp DESC;
 ```
