@@ -10,23 +10,23 @@
    4. The voting power of the voter at the time the vote was executed (from execution_outcomes.logs)
    5. The voting power delegated on a vote action 
    6. The timestamp at which the vote action occurred 
-   7. The block-related data for this vote (block hash/id, block height) 
+   7. The block-related data for this vote (block hash or id, block height) 
 */
 
-CREATE VIEW proposal_voting_history AS
+CREATE OR REPLACE VIEW {SCHEMA_NAME}.proposal_voting_history AS
 WITH execution_outcomes_prep AS (
 	SELECT 
 		receipt_id 
 		, status
 		, logs
-	FROM execution_outcomes 
+	FROM {SCHEMA_NAME}.execution_outcomes 
 )
 , receipt_actions_prep AS (
   	SELECT 
     	decode(ra.args_base64, 'base64') AS args
     	, ra.*
     	, eo.logs 
-  	FROM receipt_actions AS ra
+  	FROM {SCHEMA_NAME}.receipt_actions AS ra
   	INNER JOIN execution_outcomes_prep AS eo 
  		ON ra.receipt_id = eo.receipt_id 
  		AND eo.status = 'SuccessValue'

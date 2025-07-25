@@ -4,11 +4,13 @@
 # For example: INDEXER_DB_HOST=localhost will override db_host
 
 # Database Configuration
-# db_host = set_in_env
+db_host = "postgres"  # Docker service name for postgres
 db_port = 5432
+
 db_database = "postgres"
 db_username = "postgres"
 db_password = "postgres"
+
 db_schema = "fastnear"
 db_max_connections = 10
 

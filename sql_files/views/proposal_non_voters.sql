@@ -4,17 +4,17 @@
  References the proposals, registered_voters and proposal_voting_history views. 
 */
 
-CREATE VIEW proposal_non_voters AS 
+CREATE OR REPLACE VIEW {SCHEMA_NAME}.proposal_non_voters AS 
 SELECT 
     MD5(CONCAT(p.proposal_id, '_', rv.registered_voter_id)) AS id
     , p.proposal_id
     , rv.registered_voter_id
-FROM proposals AS p
-CROSS JOIN registered_voters AS rv
+FROM {SCHEMA_NAME}.proposals AS p
+CROSS JOIN {SCHEMA_NAME}.registered_voters AS rv
 WHERE NOT EXISTS (
     SELECT 
     	1 
-    FROM proposal_voting_history AS h
+    FROM {SCHEMA_NAME}.proposal_voting_history AS h
     WHERE 
     	h.proposal_id = p.proposal_id 
     	AND h.voter_id = rv.registered_voter_id
