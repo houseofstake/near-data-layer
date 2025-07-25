@@ -14,13 +14,13 @@
  8. The block-related data for the event (block hash, block height) 
  */
 
-CREATE VIEW user_activities AS
+CREATE OR REPLACE VIEW {SCHEMA_NAME}.user_activities AS
 WITH execution_outcomes_prep AS (
 	SELECT
 		receipt_id
 		, status
 		, logs
-	FROM execution_outcomes
+	FROM {SCHEMA_NAME}.execution_outcomes
 )
 , receipt_actions_prep AS (
 	SELECT
@@ -33,7 +33,7 @@ WITH execution_outcomes_prep AS (
 		, eo.status                      AS status
 		, eo.logs                        AS logs
 		, ra.*
-	FROM receipt_actions AS ra
+	FROM {SCHEMA_NAME}.receipt_actions AS ra
 	LEFT JOIN execution_outcomes_prep AS eo
 		ON ra.receipt_id = eo.receipt_id
 	WHERE

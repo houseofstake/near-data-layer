@@ -9,14 +9,14 @@
  5. The block-related data for the create_proposal action (block hash/id, block height) 
  */
 
-CREATE VIEW proposals AS 
+CREATE OR REPLACE VIEW {SCHEMA_NAME}.proposals AS 
 WITH execution_outcomes_prep AS (
  	SELECT 
  		receipt_id
  		, status
  		, logs
 		, results_json
- 	FROM execution_outcomes
+ 	FROM {SCHEMA_NAME}.execution_outcomes
 )
 , receipt_actions_prep AS (
 	SELECT
@@ -25,7 +25,7 @@ WITH execution_outcomes_prep AS (
  		, eo.logs AS action_logs
 		, eo.results_json
  		, ra.*
- 	FROM receipt_actions AS ra
+ 	FROM {SCHEMA_NAME}.receipt_actions AS ra
  	INNER JOIN execution_outcomes_prep AS eo
  		ON ra.receipt_id = eo.receipt_id
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
@@ -163,7 +163,7 @@ WITH execution_outcomes_prep AS (
 		, SUM(CASE WHEN vote_option = 0 THEN voting_power ELSE 0 END) AS for_voting_power
  		, SUM(CASE WHEN vote_option = 1 THEN voting_power ELSE 0 END) AS against_voting_power
  		, SUM(CASE WHEN vote_option = 2 THEN voting_power ELSE 0 END) AS abstain_voting_power
- 	FROM proposal_voting_history 
+ 	FROM {SCHEMA_NAME}.proposal_voting_history 
  	GROUP BY 1
  )
  SELECT

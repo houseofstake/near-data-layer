@@ -14,13 +14,13 @@
  10. The block-related data for the delegate_all or undelegate event (block hash/id, block height) 
  */
 
-CREATE VIEW delegation_events AS 
+CREATE OR REPLACE VIEW {SCHEMA_NAME}.delegation_events AS 
 WITH execution_outcomes_prep AS (
 	SELECT
  		receipt_id 
  		, status
  		, logs
- 	FROM execution_outcomes 
+ 	FROM {SCHEMA_NAME}.execution_outcomes 
 )
 , receipt_actions_prep AS (
 	SELECT
@@ -28,14 +28,14 @@ WITH execution_outcomes_prep AS (
  		, eo.status 					 
  		, eo.logs 						 
  		, ra.*
- 	FROM receipt_actions AS ra
+ 	FROM {SCHEMA_NAME}.receipt_actions AS ra
  	INNER JOIN execution_outcomes_prep AS eo
  		ON ra.receipt_id = eo.receipt_id
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
  		AND ra.receiver_id IN (           --House of Stake contracts
- 			'v.r-1748895584.testnet'      --veNEAR contract --
+ 			'v.r-1748895584.testnet'      --veNEAR contract 
  			, 'vote.r-1748895584.testnet' --Voting contract 
  			)
 )

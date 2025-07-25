@@ -6,6 +6,31 @@ use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 use tracing::info;
 use serde_json;
 
+/// Remove multi-line comments from SQL content
+fn remove_multiline_comments(content: &str) -> String {
+    let mut result = String::new();
+    let mut chars = content.chars().peekable();
+    let mut in_comment = false;
+    
+    while let Some(ch) = chars.next() {
+        if in_comment {
+            if ch == '*' && chars.peek() == Some(&'/') {
+                chars.next(); // consume the '/'
+                in_comment = false;
+            }
+        } else {
+            if ch == '/' && chars.peek() == Some(&'*') {
+                chars.next(); // consume the '*'
+                in_comment = true;
+            } else {
+                result.push(ch);
+            }
+        }
+    }
+    
+    result
+}
+
 #[derive(Debug, Clone)]
 pub struct ReceiptActionRow {
     pub id: String,
@@ -66,7 +91,7 @@ impl Database {
 
     pub async fn initialize_tables(&self, settings: &Settings) -> Result<()> {
         // Read schema from schema.sql file
-        let schema_content = std::fs::read_to_string("schema.sql")
+        let schema_content = std::fs::read_to_string("sql_files/schema.sql")
             .map_err(|e| anyhow::anyhow!("Failed to read schema.sql: {}", e))?;
         
         // Replace schema name placeholder with actual schema name from config
@@ -87,6 +112,88 @@ impl Database {
         }
         
         info!("Database tables initialized from schema.sql with schema: {}", settings.db_schema);
+
+        // Note: Using CREATE OR REPLACE VIEW is atomic and production-safe
+        // No need to drop views as CREATE OR REPLACE handles this automatically
+        // This prevents any downtime for front-end applications
+
+        // Execute helper functions first (views depend on these)
+        let helper_files = vec![
+            "safe_json_parse.sql"
+        ];
+
+        for file_name in helper_files {
+            let file_path = format!("sql_files/helper_queries/{}", file_name);
+            match std::fs::read_to_string(&file_path) {
+                Ok(content) => {
+                    // Replace schema name placeholder with actual schema name
+                    let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
+                    
+                    // Remove multi-line comments before executing
+                    let content = remove_multiline_comments(&content);
+                    
+                    // For helper functions, execute the entire content as a single statement
+                    // since they may contain dollar-quoted strings and semicolons within function bodies
+                    let trimmed_content = content.trim();
+                    if !trimmed_content.is_empty() {
+                        match sqlx::query(trimmed_content).execute(&self.pool).await {
+                            Ok(_) => info!("Executed helper function from {}", file_name),
+                            Err(e) => {
+                                info!("Error executing helper function from {}: {}", file_name, e);
+                                return Err(anyhow::anyhow!("Failed to execute helper function: {}", e));
+                            }
+                        }
+                    }
+                    info!("Successfully processed helper function: {}", file_name);
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!("Failed to read helper function file {}: {}", file_name, e));
+                }
+            }
+        }
+
+        // Execute view creation files in the correct (reverse) order
+        let view_files_order = vec![
+            "delegation_events.sql",
+            "proposal_voting_history.sql",
+            "proposals.sql",
+            "approved_proposals.sql",
+            "registered_voters.sql",
+            "proposal_non_voters.sql",
+            "user_activities.sql"
+        ];
+
+        for file_name in view_files_order {
+            let file_path = format!("sql_files/views/{}", file_name);
+            match std::fs::read_to_string(&file_path) {
+                Ok(content) => {
+                    // Replace schema name placeholder with actual schema name
+                    let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
+                    
+                    // Remove multi-line comments before executing
+                    let content = remove_multiline_comments(&content);
+                    
+                    // For view files, execute the entire content as a single statement
+                    // since they may contain complex CTEs, subqueries, and semicolons within the view definition
+                    let trimmed_content = content.trim();
+                    if !trimmed_content.is_empty() {
+                        match sqlx::query(trimmed_content).execute(&self.pool).await {
+                            Ok(_) => info!("Executed view from {}", file_name),
+                            Err(e) => {
+                                info!("Error executing view from {}: {}", file_name, e);
+                                return Err(anyhow::anyhow!("Failed to execute view creation: {}", e));
+                            }
+                        }
+                    }
+                    info!("Successfully processed view file: {}", file_name);
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!("Failed to read view file {}: {}", file_name, e));
+                }
+            }
+        }
+        
+        info!("Database views initialized from sql_files/views with schema: {}", settings.db_schema);
         Ok(())
     }
 

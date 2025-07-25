@@ -13,7 +13,7 @@
    7. The registered voter's proposal participation rate              (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract; always a percentage out of 10)
 */
 
-CREATE VIEW registered_voters AS
+CREATE OR REPLACE VIEW {SCHEMA_NAME}.registered_voters AS
 WITH
 /* Sourcing Registered Voters */
 execution_outcomes_prep AS (
@@ -21,7 +21,7 @@ execution_outcomes_prep AS (
 		receipt_id
 		, status
 		, logs
-	FROM execution_outcomes
+	FROM {SCHEMA_NAME}.execution_outcomes
 )
 , receipt_actions_prep AS (
 	SELECT
@@ -29,7 +29,7 @@ execution_outcomes_prep AS (
 		, eo.status AS action_status
 		, eo.logs AS action_logs
 		, ra.*
-	FROM receipt_actions AS ra
+	FROM {SCHEMA_NAME}.receipt_actions AS ra
 	INNER JOIN execution_outcomes_prep AS eo
 		ON ra.receipt_id = eo.receipt_id
 		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
@@ -108,7 +108,7 @@ execution_outcomes_prep AS (
 		delegator_id 
 		, delegatee_id
 		, near_amount
-	FROM delegation_events
+	FROM {SCHEMA_NAME}.delegation_events
 	WHERE 
 		is_latest_delegator_event = TRUE 
 		AND delegate_method = 'delegate_all'
@@ -127,7 +127,7 @@ execution_outcomes_prep AS (
 , ten_most_recently_approved_proposals AS (
 	SELECT
 		*
-	FROM approved_proposals
+	FROM {SCHEMA_NAME}.approved_proposals
 	ORDER BY proposal_approved_at DESC
 	LIMIT 10
 )
@@ -139,7 +139,7 @@ execution_outcomes_prep AS (
 			WHEN t.proposal_id IS NULL THEN 0 
 			ELSE 1 END AS is_proposal_from_ten_most_recently_approved 
 	FROM registered_voters_prep AS rv 
-	INNER JOIN proposal_voting_history AS pvh 
+	INNER JOIN {SCHEMA_NAME}.proposal_voting_history AS pvh 
 		ON rv.signer_account_id = pvh.voter_id
 	LEFT JOIN ten_most_recently_approved_proposals AS t
 		ON t.proposal_id = pvh.proposal_id

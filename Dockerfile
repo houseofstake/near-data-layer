@@ -33,7 +33,8 @@ RUN cargo build --release && rm -rf src target/release/deps/near_indexer*
 COPY src/ ./src/
 
 # Copy remaining files
-COPY schema.sql config.toml ./
+COPY sql_files/ ./sql_files/
+COPY config.toml ./
 COPY scripts/ ./scripts/
 
 # Copy .env file if it exists (wildcard pattern won't fail if missing)

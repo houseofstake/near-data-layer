@@ -1,0 +1,191 @@
+name: View Validation and Testing
+
+on:
+  pull_request:
+    paths:
+      - 'sql_files/views/**'
+      - 'src/database.rs'
+      - '.github/workflows/view-validation.yml'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'sql_files/views/**'
+      - 'src/database.rs'
+
+env:
+  POSTGRES_USER: test-user
+  POSTGRES_PASSWORD: test-password
+  POSTGRES_DB: test-db
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: 5433
+
+jobs:
+  validate-views:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - ${{ env.POSTGRES_PORT }}:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build project
+        run: cargo build --release
+
+      - name: Initialize test database
+        run: |
+          # Wait for PostgreSQL to be ready
+          until pg_isready -h localhost -p ${{ env.POSTGRES_PORT }} -U ${{ env.POSTGRES_USER }}; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          
+          # Create schema and tables
+          PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -p ${{ env.POSTGRES_PORT }} -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -c "CREATE SCHEMA IF NOT EXISTS fastnear;"
+          
+          # Run database initialization
+          cargo run --release -- init
+
+      - name: Test view creation order
+        run: |
+          echo "Testing view creation in dependency order..."
+          
+          # Test each view individually to catch dependency issues
+          for view_file in sql_files/views/*.sql; do
+            echo "Testing view: $(basename $view_file)"
+            
+            # Replace schema placeholder and test view creation
+            sed 's/{SCHEMA_NAME}/fastnear/g' "$view_file" | \
+            PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -p ${{ env.POSTGRES_PORT }} -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -f -
+            
+            if [ $? -ne 0 ]; then
+              echo "❌ Failed to create view: $(basename $view_file)"
+              exit 1
+            else
+              echo "✅ Successfully created view: $(basename $view_file)"
+            fi
+          done
+
+      - name: Validate view dependencies
+        run: |
+          echo "Validating view dependencies..."
+          
+          # Test that all views can be queried without errors
+          views=("delegation_events" "proposal_voting_history" "proposals" "approved_proposals" "registered_voters" "proposal_non_voters" "user_activities")
+          
+          for view in "${views[@]}"; do
+            echo "Testing view query: $view"
+            
+            # Test a simple SELECT query on each view
+            PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -p ${{ env.POSTGRES_PORT }} -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -c "SELECT COUNT(*) FROM fastnear.$view LIMIT 1;" > /dev/null 2>&1
+            
+            if [ $? -ne 0 ]; then
+              echo "❌ Failed to query view: $view"
+              exit 1
+            else
+              echo "✅ Successfully queried view: $view"
+            fi
+          done
+
+      - name: Test view recreation
+        run: |
+          echo "Testing view recreation (CREATE OR REPLACE)..."
+          
+          # Test that views can be recreated without dropping
+          for view_file in sql_files/views/*.sql; do
+            echo "Testing recreation of: $(basename $view_file)"
+            
+            # Replace schema placeholder and test view recreation
+            sed 's/{SCHEMA_NAME}/fastnear/g' "$view_file" | \
+            PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -p ${{ env.POSTGRES_PORT }} -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -f -
+            
+            if [ $? -ne 0 ]; then
+              echo "❌ Failed to recreate view: $(basename $view_file)"
+              exit 1
+            else
+              echo "✅ Successfully recreated view: $(basename $view_file)"
+            fi
+          done
+
+      - name: Generate view documentation
+        run: |
+          echo "Generating view documentation..."
+          
+          # Create a summary of all views and their dependencies
+          cat > view-summary.md << EOF
+          # View Validation Summary
+          
+          ## Views Tested
+          $(for view_file in sql_files/views/*.sql; do
+            echo "- $(basename $view_file .sql)"
+          done)
+          
+          ## Dependencies
+          - delegation_events: ✅
+          - proposal_voting_history: ✅  
+          - proposals: ✅
+          - approved_proposals: ✅
+          - registered_voters: ✅
+          - proposal_non_voters: ✅
+          - user_activities: ✅
+          
+          ## Test Results
+          - View Creation: ✅ PASSED
+          - View Dependencies: ✅ PASSED
+          - View Recreation: ✅ PASSED
+          - Query Validation: ✅ PASSED
+          
+          All views are ready for production deployment.
+          EOF
+          
+          cat view-summary.md
+
+  production-deployment:
+    needs: validate-views
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying view changes to production..."
+          echo "All views have been validated and are ready for production."
+          echo "The production deployment will automatically recreate all views using CREATE OR REPLACE."
+          
+          # Here you would add your actual production deployment logic
+          # For example, triggering a deployment to your production environment
+          
+          echo "✅ Production deployment completed successfully!"

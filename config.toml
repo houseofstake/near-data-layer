@@ -4,16 +4,17 @@
 # For example: INDEXER_DB_HOST=localhost will override db_host
 
 # Database Configuration
-# db_host = set_in_env
+db_host = "postgres"  # Docker service name for postgres
 db_port = 5432
-db_database = "postgres"
-# db_username = set_in_env
-# db_password = set_in_env
+db_database = "dev-node"  # Match the POSTGRES_DB from docker-compose
+db_username = "dev-node"  # Match the POSTGRES_USER from docker-compose
+db_password = "insecure-change-me-in-prod"  # Match the POSTGRES_PASSWORD from docker-compose
 db_schema = "fastnear"
 db_max_connections = 10
 
 # Indexer Configuration
-start_block = 183500000 # first proposal block 199579301, jan 1st block 183500000
+# start_block = 183500000 # first proposal block 199579301, jan 1st block 183500000
+start_block = 199579301 # first proposal block 199579301, jan 1st block 183500000
 batch_size = 10
 poll_interval = 1
 max_retries = 3
@@ -21,7 +22,8 @@ retry_delay = 5
 num_threads = 64
 
 # NEAR API Configuration
-api_url = "https://rpc.testnet.nearblocks.io"
+# api_url = "https://rpc.testnet.nearblocks.io"
+api_url = "https://api.testnet.near.org"
 # api_auth_token = set_in_env
 api_chain_id = "testnet"
 api_finality = "final"
