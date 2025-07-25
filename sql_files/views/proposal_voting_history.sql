@@ -10,7 +10,7 @@
    4. The voting power of the voter at the time the vote was executed (from execution_outcomes.logs)
    5. The voting power delegated on a vote action 
    6. The timestamp at which the vote action occurred 
-   7. The block-related data for this vote (block hash/id, block height) 
+   7. The block-related data for this vote (block hash or id, block height) 
 */
 
 CREATE OR REPLACE VIEW {SCHEMA_NAME}.proposal_voting_history AS

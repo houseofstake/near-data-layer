@@ -7,7 +7,7 @@
    1. A registered voter ID                                           (The voter account; eg. lighttea2007.testnet) 
    2. The related House of Stake Contract                             (veNEAR contract address, v.r-1745564650.testnet)
    3. The timestamp at which the voter registration action occurred 
-   4. The block-related data for this deploy_lockup action            (Block hash/id, block height) 
+   4. The block-related data for this deploy_lockup action            (Block hash or id, block height) 
    5. The registerd voter's current voting power                      (Sourced from the execution_outcomes.logs value associated with the voter account's latest on_lockup_update event from receipt_actions)  
    6. The registered voter's initial voting power                     (Sourced from the execution_outcomes.logs value associated with the storage_deposit event that gets emitted upon vote registration) 
    7. The registered voter's proposal participation rate              (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract; always a percentage out of 10)
@@ -219,5 +219,6 @@ SELECT
 	, proposal_participation_rate
 	, block_height
 	, block_hash
+	, block_hash as hash 
 FROM final 
 ;

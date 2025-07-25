@@ -4,9 +4,9 @@
  Unique method_names referenced as an individual event: 
  (1) on_lockup_deployed, (2) lock_near, (3) on_lockup_update, (4) end_unlock_near, (5) delegate_all, (6) undelegate, (7) begin_unlock_near, (8) lock_pending_near
  
- 1. Timestamp / date of the event
+ 1. Timestamp or date of the event
  2. House of Stake contract address 
- 3. Event Type / Method Name 
+ 3. Event Type or Method Name 
  4. Event Status (one of succeeded or failed)
  5. Account ID (the user performing the NEAR delegation) 
  6. Near amount 
@@ -171,7 +171,7 @@ WITH execution_outcomes_prep AS (
     FROM on_lockup_update_prep
 )
  -------------------------------
- --Delegations / Undelegations--
+ --Delegations and Undelegations--
  -------------------------------
  , delegations_undelegations AS (
    	SELECT

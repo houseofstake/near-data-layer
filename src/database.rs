@@ -6,31 +6,6 @@ use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 use tracing::info;
 use serde_json;
 
-/// Remove multi-line comments from SQL content
-fn remove_multiline_comments(content: &str) -> String {
-    let mut result = String::new();
-    let mut chars = content.chars().peekable();
-    let mut in_comment = false;
-    
-    while let Some(ch) = chars.next() {
-        if in_comment {
-            if ch == '*' && chars.peek() == Some(&'/') {
-                chars.next(); // consume the '/'
-                in_comment = false;
-            }
-        } else {
-            if ch == '/' && chars.peek() == Some(&'*') {
-                chars.next(); // consume the '*'
-                in_comment = true;
-            } else {
-                result.push(ch);
-            }
-        }
-    }
-    
-    result
-}
-
 #[derive(Debug, Clone)]
 pub struct ReceiptActionRow {
     pub id: String,
@@ -129,9 +104,6 @@ impl Database {
                     // Replace schema name placeholder with actual schema name
                     let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
                     
-                    // Remove multi-line comments before executing
-                    let content = remove_multiline_comments(&content);
-                    
                     // For helper functions, execute the entire content as a single statement
                     // since they may contain dollar-quoted strings and semicolons within function bodies
                     let trimmed_content = content.trim();
@@ -169,9 +141,6 @@ impl Database {
                 Ok(content) => {
                     // Replace schema name placeholder with actual schema name
                     let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
-                    
-                    // Remove multi-line comments before executing
-                    let content = remove_multiline_comments(&content);
                     
                     // For view files, execute the entire content as a single statement
                     // since they may contain complex CTEs, subqueries, and semicolons within the view definition

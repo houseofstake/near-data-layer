@@ -1,8 +1,8 @@
 /*
  Primary key on this table is the receipt_id (base58 encoded) + delegatee_id associated with the most recent unique delegate_all or undelegate action per delegator_id. 
- This is a dimensional table that returns, for each unique delegate_all / undelegate event, the following: 
+ This is a dimensional table that returns, for each unique delegate_all or undelegate event, the following: 
  
- 1. Timestamp / date of the delegate/undelegate action 
+ 1. Timestamp or date of the delegate/undelegate action 
  2. House of Stake contract address 
  3. Delegate Method Type (one of delegate_all or undelegate)
  4. Delegation Event Type (one of ft_burn or ft_mint) 
@@ -11,7 +11,7 @@
  7. Delegatee ID (the users who are receiving the delegated NEAR; only populated when delegate_method = 'delegate_all') 
  8. Owner ID (For ft_mint events, this is the user who is receiving the delegated NEAR; for ft_burn events, this is the user who is burning/delegating away the delegated NEAR)
  9. The amount of near that was delegated 
- 10. The block-related data for the delegate_all or undelegate event (block hash/id, block height) 
+ 10. The block-related data for the delegate_all or undelegate event (block hash or id, block height) 
  */
 
 CREATE OR REPLACE VIEW {SCHEMA_NAME}.delegation_events AS 
@@ -88,6 +88,7 @@ SELECT
 	--Block Data 
 	, ra.block_height
  	, ra.block_hash
+	, ra.block_timestamp
  FROM delegate_undelegate_events AS ra
  LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
  	ON TRUE

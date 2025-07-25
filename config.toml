@@ -13,8 +13,7 @@ db_schema = "fastnear"
 db_max_connections = 10
 
 # Indexer Configuration
-# start_block = 183500000 # first proposal block 199579301, jan 1st block 183500000
-start_block = 199579301 # first proposal block 199579301, jan 1st block 183500000
+start_block = 183500000 # first proposal block 199579301, jan 1st block 183500000
 batch_size = 10
 poll_interval = 1
 max_retries = 3
@@ -22,8 +21,7 @@ retry_delay = 5
 num_threads = 64
 
 # NEAR API Configuration
-# api_url = "https://rpc.testnet.nearblocks.io"
-api_url = "https://api.testnet.near.org"
+api_url = "https://rpc.testnet.nearblocks.io"
 # api_auth_token = set_in_env
 api_chain_id = "testnet"
 api_finality = "final"
