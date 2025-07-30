@@ -32,7 +32,7 @@ pub struct Settings {
     // DataDog metrics
     pub dd_api_key: Option<String>,
     pub datadog_enabled: bool,
-    pub indexer_env: String,
+    pub environment: String,
 }
 
 impl Settings {

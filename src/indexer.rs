@@ -27,7 +27,7 @@ impl Indexer {
         let datadog_metrics = DataDogMetrics::new(
             settings.dd_api_key.clone(),
             settings.datadog_enabled,
-            settings.indexer_env.clone(),
+            settings.environment.clone(),
         );
 
         Ok(Self {
