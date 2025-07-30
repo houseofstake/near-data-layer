@@ -41,4 +41,4 @@ app_version = "v1.0.0"
 # DataDog Configuration
 datadog_enabled = true
 # dd_api_key = set_in_env
-dd_environment = 'development'
+indexer_env = 'development'

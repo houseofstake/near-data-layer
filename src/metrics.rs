@@ -7,7 +7,7 @@ pub struct DataDogMetrics {
     client: Client,
     api_key: Option<String>,
     enabled: bool,
-    dd_environment: String,
+    indexer_env: String,
 }
 
 impl DataDogMetrics {
@@ -26,7 +26,7 @@ impl DataDogMetrics {
             client,
             api_key,
             enabled: enabled && has_api_key,
-            dd_environment: environment,
+            indexer_env: environment,
         }
     }
 
@@ -55,7 +55,7 @@ impl DataDogMetrics {
                     "points": [[now, block_age_seconds]],
                     "tags": [
                         "service:near-indexer",
-                        format!("env:{}", self.dd_environment)
+                        format!("env:{}", self.indexer_env)
                     ]
                 }
             ]

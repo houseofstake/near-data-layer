@@ -23,8 +23,8 @@ else
     export INDEXER_DD_API_KEY=$(gcloud secrets versions access latest --secret=DD_API_KEY)
 fi
 
-# Set DD_ENVIRONMENT from environment variable if not already set
-export INDEXER_DD_ENVIRONMENT=${INDEXER_DD_ENVIRONMENT:-${DD_ENVIRONMENT:-development}}
+# Set DD_ENVIRONMENT from environment variable if not already set  
+export INDEXER_INDEXER_ENV=${INDEXER_INDEXER_ENV:-${INDEXER_ENV:-development}}
 
 # Set RUST_LOG if not already set
 export RUST_LOG=${RUST_LOG:-${INDEXER_LOG_LEVEL:-info}}
