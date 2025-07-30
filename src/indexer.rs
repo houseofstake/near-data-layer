@@ -1,5 +1,6 @@
 use crate::config::Settings;
 use crate::database::Database;
+use crate::metrics::DataDogMetrics;
 use crate::processor::Processor;
 use anyhow::Result;
 use fastnear_neardata_fetcher::fetcher;
@@ -15,6 +16,7 @@ pub struct Indexer {
     settings: Settings,
     processor: Processor,
     is_running: Arc<AtomicBool>,
+    datadog_metrics: DataDogMetrics,
 }
 
 impl Indexer {
@@ -22,11 +24,17 @@ impl Indexer {
         let database = Database::new(settings.clone()).await?;
         let processor = Processor::new(database, settings.clone());
         let is_running = Arc::new(AtomicBool::new(true));
+        let datadog_metrics = DataDogMetrics::new(
+            settings.dd_api_key.clone(),
+            settings.datadog_enabled,
+            settings.dd_environment.clone(),
+        );
 
         Ok(Self {
             settings,
             processor,
             is_running,
+            datadog_metrics,
         })
     }
 
@@ -187,6 +195,20 @@ impl Indexer {
                 .await
             {
                 error!("Failed to update cursor for block {}: {}", block_height, e);
+            }
+
+            // Send DataDog metrics every 10 blocks
+            if processed_blocks % 10 == 0 {
+                let block_timestamp = {
+                    let secs = (block.block.header.timestamp_nanosec / 1_000_000_000) as i64;
+                    let nsecs = (block.block.header.timestamp_nanosec % 1_000_000_000) as u32;
+                    chrono::DateTime::<chrono::Utc>::from_timestamp(secs, nsecs)
+                        .unwrap_or_else(|| chrono::Utc::now())
+                };
+                
+                self.datadog_metrics
+                    .send_block_metrics(block_height, block_timestamp)
+                    .await;
             }
 
             // Log every 1000 blocks

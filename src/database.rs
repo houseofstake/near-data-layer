@@ -54,13 +54,27 @@ pub struct Database {
 
 impl Database {
     pub async fn new(settings: Settings) -> Result<Self> {
+        info!(
+            "Initializing database connection pool: max_connections={}, acquire_timeout=30s, host={}:{}",
+            settings.db_max_connections, settings.db_host, settings.db_port
+        );
+        
         let pool: sqlx::Pool<sqlx::Postgres> = PgPoolOptions::new()
             .max_connections(settings.db_max_connections)
             .acquire_timeout(std::time::Duration::from_secs(30))
             .connect(&settings.database_url())
-            .await?;
+            .await
+            .map_err(|e| anyhow::anyhow!(
+                "Failed to connect to database {}@{}:{}/{} with max_connections={}: {}",
+                settings.db_username, settings.db_host, settings.db_port, 
+                settings.db_database, settings.db_max_connections, e
+            ))?;
 
-        info!("Connected to database: {}", settings.db_database);
+        info!(
+            "Connected to database: {} (max_connections={})",
+            settings.db_database,
+            settings.db_max_connections
+        );
         Ok(Self { pool })
     }
 
@@ -193,7 +207,11 @@ impl Database {
         .bind(block_num as i64)
         .bind(block_hash)
         .execute(&self.pool)
-        .await?;
+        .await
+        .map_err(|e| anyhow::anyhow!(
+            "Failed to update cursor for block {} ({}): {}. This may indicate database connection pool exhaustion (max_connections configured). Check for long-running queries or increase db_max_connections in config.", 
+            block_num, id, e
+        ))?;
 
         Ok(())
     }
@@ -224,7 +242,11 @@ impl Database {
         .bind(&header.gas_price.to_string())
         .bind(&header.total_supply.to_string())
         .execute(&self.pool)
-        .await?;
+        .await
+        .map_err(|e| anyhow::anyhow!(
+            "Failed to store block {} (height={}): {}. Database pool timeout may indicate: 1) Too many concurrent operations, 2) Long-running queries blocking pool, 3) Need to increase db_max_connections (currently configured).", 
+            header.hash, header.height, e
+        ))?;
         Ok(())
     }
 

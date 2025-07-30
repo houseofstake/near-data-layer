@@ -32,7 +32,13 @@ api_finality = "final"
 venear_contracts = [
     "r-1745564650.testnet",
     "r-1746683627.testnet", 
-    "r-1748895584.testnet"
+    "r-1748895584.testnet",
+    'hos-07.testnet'
 ]
 log_level = "info"
 app_version = "v1.0.0"
+
+# DataDog Configuration
+datadog_enabled = true
+# dd_api_key = set_in_env
+dd_environment = 'development'

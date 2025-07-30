@@ -1,6 +1,7 @@
 mod config;
 mod database;
 mod indexer;
+mod metrics;
 mod processor;
 
 use clap::{Parser, Subcommand};

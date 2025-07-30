@@ -29,6 +29,10 @@ pub struct Settings {
     pub log_level: String,
     // App version (from config file)
     pub app_version: String,
+    // DataDog metrics
+    pub dd_api_key: Option<String>,
+    pub datadog_enabled: bool,
+    pub dd_environment: String,
 }
 
 impl Settings {
