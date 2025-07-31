@@ -47,8 +47,7 @@ testnet = [
     'hos-07.testnet'
 ]
 mainnet = [
-    "r-1745564650.testnet",
-    "r-1746683627.testnet", 
-    "r-1748895584.testnet",
-    'hos-07.testnet'
+    # TODO: Add mainnet contract addresses when ready
+    # "contract1.near",
+    # "contract2.near"
 ]
