@@ -35,10 +35,6 @@ execution_outcomes_prep AS (
 		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
 	WHERE
 		ra.action_kind = 'FunctionCall'
-		AND ra.receiver_id IN (           --House of Stake contracts
-    		'v.r-1748895584.testnet'      --veNEAR contract
-    		, 'vote.r-1748895584.testnet' --Voting contract
-    		)
 )
 , registered_voters_prep AS (
   	SELECT
@@ -59,12 +55,13 @@ execution_outcomes_prep AS (
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
  		    ELSE NULL 
- 		  END, ra.signer_account_id) AS registered_voter_id
+ 		    END
+		, ra.signer_account_id) AS registered_voter_id
     	, CASE 
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
  		    ELSE NULL 
- 		  END AS initial_voting_power
+ 		    END AS initial_voting_power
     	, ra.receiver_id AS hos_contract_address
     	, ra.block_height
     	, ra.block_hash
@@ -80,17 +77,18 @@ execution_outcomes_prep AS (
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
  		    ELSE NULL 
- 		  END, ra.signer_account_id) AS registered_voter_id
+ 		    END
+		, ra.signer_account_id) AS registered_voter_id
 		, CASE 
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC
  		    ELSE NULL 
- 		  END AS current_voting_power_logs
+ 		    END AS current_voting_power_logs
     	, CASE 
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'update'->'V1'->>'locked_near_balance')::NUMERIC
  		    ELSE NULL 
- 		  END AS current_voting_power_args
+ 		    END AS current_voting_power_args
     	, ra.receiver_id AS hos_contract_address
     	, ra.block_height
     	, ra.block_hash																		

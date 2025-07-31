@@ -34,10 +34,6 @@ WITH execution_outcomes_prep AS (
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
- 		AND ra.receiver_id IN (           --House of Stake contracts
- 			'v.r-1748895584.testnet'      --veNEAR contract 
- 			, 'vote.r-1748895584.testnet' --Voting contract 
- 			)
 )
 , delegate_undelegate_events AS (
 	SELECT 
@@ -60,30 +56,30 @@ SELECT
  	, ra.receiver_id AS hos_contract_address 
  	, ra.predecessor_id AS delegator_id 
  	, CASE 
- 		    WHEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'error' IS NULL
- 		    THEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'receiver_id'
- 		    ELSE NULL 
- 		  END AS delegatee_id --null for the undelegate event 
+ 		WHEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'error' IS NULL
+ 		THEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'receiver_id'
+ 		ELSE NULL 
+ 		END AS delegatee_id --null for the undelegate event 
  	, ra.method_name AS delegate_method
 	, CASE 
- 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'event'
- 		    ELSE NULL 
- 		  END AS delegate_event 
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'event'
+ 		ELSE NULL 
+ 		END AS delegate_event 
 	, CASE 
  	 	WHEN row_num = 1 
  	 	THEN TRUE 
  	 	ELSE FALSE END AS is_latest_delegator_event 
 	, CASE 
- 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		    ELSE NULL 
- 		  END AS owner_id
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		ELSE NULL 
+ 		END AS owner_id
 	, CASE 
- 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
- 		    ELSE NULL 
- 		  END AS near_amount
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		ELSE NULL 
+ 		END AS near_amount
 		
 	--Block Data 
 	, ra.block_height

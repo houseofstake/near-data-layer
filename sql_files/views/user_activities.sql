@@ -71,10 +71,6 @@ WITH execution_outcomes_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'on_lockup_deployed'
-		AND ra.receiver_id IN (          
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
- 			)
 )
 -------------
 --Lock NEAR--
@@ -108,10 +104,6 @@ WITH execution_outcomes_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'lock_near'
-		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
- 			)
 )
 , on_lockup_update_prep AS (
     --There are 2 event_json arrays per on_lockup_update method; 1st event is on_lockup_update; 2nd is ft_mint. 
@@ -148,10 +140,6 @@ WITH execution_outcomes_prep AS (
     CROSS JOIN LATERAL UNNEST(ra.logs) AS log
     WHERE 
     	ra.method_name = 'on_lockup_update'
-        AND ra.receiver_id IN (        
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
- 			)
     GROUP BY 1,2,3,4,5,6,7,8,9
 )
 , on_lockup_update AS (
@@ -209,10 +197,6 @@ WITH execution_outcomes_prep AS (
  		ON TRUE
   	WHERE
     	ra.method_name IN ('delegate_all', 'undelegate')
-		AND ra.receiver_id IN (           
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
- 			)
 )
 ---------------------
 --Begin Unlock NEAR--
@@ -238,10 +222,6 @@ WITH execution_outcomes_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'begin_unlock_near'
-		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
- 			)
  )
 ------------------------
 --Re-Lock Pending NEAR--
@@ -267,10 +247,6 @@ WITH execution_outcomes_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'lock_pending_near'
-		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
- 			)
  )
  ----------
  --UNIONS--
