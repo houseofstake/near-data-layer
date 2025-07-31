@@ -20,7 +20,13 @@ else
     export INDEXER_DB_USERNAME=$(gcloud secrets versions access latest --secret=DATABASE_USER)
     export INDEXER_DB_PASSWORD=$(gcloud secrets versions access latest --secret=DATABASE_PASSWORD)
     export INDEXER_API_AUTH_TOKEN=$(gcloud secrets versions access latest --secret=FASTNEAR_API_KEY)
+    export INDEXER_DD_API_KEY=$(gcloud secrets versions access latest --secret=DD_API_KEY)
 fi
+
+# Set ENVIRONMENT from environment variable if not already set  
+export INDEXER_ENVIRONMENT=${INDEXER_ENVIRONMENT:-${ENVIRONMENT:-development}}
+export INDEXER_DD_ENVIRONMENT=${INDEXER_DD_ENVIRONMENT:-${DD_ENVIRONMENT:-development}}
+
 
 # Set RUST_LOG if not already set
 export RUST_LOG=${RUST_LOG:-${INDEXER_LOG_LEVEL:-info}}

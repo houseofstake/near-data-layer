@@ -23,16 +23,30 @@ retry_delay = 5
 num_threads = 64
 
 # NEAR API Configuration
-api_url = "https://rpc.testnet.nearblocks.io"
 # api_auth_token = set_in_env
 api_chain_id = "testnet"
 api_finality = "final"
 
 # Other
-venear_contracts = [
-    "r-1745564650.testnet",
-    "r-1746683627.testnet", 
-    "r-1748895584.testnet"
-]
 log_level = "info"
 app_version = "v1.0.0"
+
+# DataDog Configuration
+datadog_enabled = true
+# dd_api_key = set_in_env
+environment = 'development'
+dd_environment = 'development'
+
+# Contract Configuration
+[venear_contracts]
+testnet = [
+    "r-1745564650.testnet",
+    "r-1746683627.testnet", 
+    "r-1748895584.testnet",
+    'hos-07.testnet'
+]
+mainnet = [
+    # TODO: Add mainnet contract addresses when ready
+    # "contract1.near",
+    # "contract2.near"
+]

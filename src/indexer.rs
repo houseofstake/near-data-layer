@@ -1,5 +1,6 @@
 use crate::config::Settings;
 use crate::database::Database;
+use crate::metrics::DataDogMetrics;
 use crate::processor::Processor;
 use anyhow::Result;
 use fastnear_neardata_fetcher::fetcher;
@@ -15,6 +16,7 @@ pub struct Indexer {
     settings: Settings,
     processor: Processor,
     is_running: Arc<AtomicBool>,
+    datadog_metrics: DataDogMetrics,
 }
 
 impl Indexer {
@@ -22,11 +24,17 @@ impl Indexer {
         let database = Database::new(settings.clone()).await?;
         let processor = Processor::new(database, settings.clone());
         let is_running = Arc::new(AtomicBool::new(true));
+        let datadog_metrics = DataDogMetrics::new(
+            settings.dd_api_key.clone(),
+            settings.datadog_enabled,
+            settings.dd_environment.clone(),
+        );
 
         Ok(Self {
             settings,
             processor,
             is_running,
+            datadog_metrics,
         })
     }
 
@@ -43,7 +51,7 @@ impl Indexer {
         let start_block_height = self.determine_start_block(cli_start_block).await?;
         info!("App version: {}", self.settings.app_version);
         info!("Starting from block: {}", start_block_height);
-        info!("veNEAR contracts: {:?}", self.settings.venear_contracts);
+        info!("veNEAR contracts: {:?}", self.settings.get_venear_contracts());
 
         // Set up signal handling
         let ctrl_c_running = self.is_running.clone();
@@ -65,7 +73,6 @@ impl Indexer {
         };
 
         // Log configuration being used
-        info!("Using NEAR API URL: {}", self.settings.api_url);
         info!("API key length: {}", self.settings.api_auth_token.as_ref().map(|k| k.len()).unwrap_or(0));
         info!("Using chain ID: {}", self.settings.api_chain_id);
         info!("Using finality: {}", self.settings.api_finality);
@@ -74,6 +81,8 @@ impl Indexer {
         info!("Using retry delay: {}s", self.settings.retry_delay);
         info!("Using max retries: {}", self.settings.max_retries);
         info!("Using num_threads: {}", self.settings.num_threads);
+        info!("Using environment: {}", self.settings.environment);
+        info!("Using dd_environment: {}", self.settings.dd_environment);
 
         let fetcher_config = fetcher::FetcherConfig {
             num_threads: self.settings.num_threads,
@@ -187,6 +196,20 @@ impl Indexer {
                 .await
             {
                 error!("Failed to update cursor for block {}: {}", block_height, e);
+            }
+
+            // Send DataDog metrics every 10 blocks
+            if processed_blocks % 10 == 0 {
+                let block_timestamp = {
+                    let secs = (block.block.header.timestamp_nanosec / 1_000_000_000) as i64;
+                    let nsecs = (block.block.header.timestamp_nanosec % 1_000_000_000) as u32;
+                    chrono::DateTime::<chrono::Utc>::from_timestamp(secs, nsecs)
+                        .unwrap_or_else(|| chrono::Utc::now())
+                };
+                
+                self.datadog_metrics
+                    .send_block_metrics(block_height, block_timestamp)
+                    .await;
             }
 
             // Log every 1000 blocks
