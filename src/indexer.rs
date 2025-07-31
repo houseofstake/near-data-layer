@@ -27,7 +27,7 @@ impl Indexer {
         let datadog_metrics = DataDogMetrics::new(
             settings.dd_api_key.clone(),
             settings.datadog_enabled,
-            settings.environment.clone(),
+            settings.dd_environment.clone(),
         );
 
         Ok(Self {
@@ -51,7 +51,7 @@ impl Indexer {
         let start_block_height = self.determine_start_block(cli_start_block).await?;
         info!("App version: {}", self.settings.app_version);
         info!("Starting from block: {}", start_block_height);
-        info!("veNEAR contracts: {:?}", self.settings.venear_contracts);
+        info!("veNEAR contracts: {:?}", self.settings.get_venear_contracts());
 
         // Set up signal handling
         let ctrl_c_running = self.is_running.clone();
@@ -82,6 +82,8 @@ impl Indexer {
         info!("Using retry delay: {}s", self.settings.retry_delay);
         info!("Using max retries: {}", self.settings.max_retries);
         info!("Using num_threads: {}", self.settings.num_threads);
+        info!("Using environment: {}", self.settings.environment);
+        info!("Using dd_environment: {}", self.settings.dd_environment);
 
         let fetcher_config = fetcher::FetcherConfig {
             num_threads: self.settings.num_threads,

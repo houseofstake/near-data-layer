@@ -1,6 +1,7 @@
 use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 use dotenvy;
+use std::collections::HashMap;
 
 #[derive(Deserialize, Clone)]
 pub struct Settings {
@@ -25,7 +26,7 @@ pub struct Settings {
     pub retry_delay: u64,
     pub num_threads: u64,
     // Other
-    pub venear_contracts: Vec<String>,
+    pub venear_contracts: HashMap<String, Vec<String>>,
     pub log_level: String,
     // App version (from config file)
     pub app_version: String,
@@ -33,6 +34,7 @@ pub struct Settings {
     pub dd_api_key: Option<String>,
     pub datadog_enabled: bool,
     pub environment: String,
+    pub dd_environment: String,
 }
 
 impl Settings {
@@ -60,7 +62,18 @@ impl Settings {
         )
     }
 
+    pub fn get_venear_contracts(&self) -> &Vec<String> {
+        self.venear_contracts
+            .get(&self.api_chain_id)
+            .unwrap_or_else(|| {
+                // Fallback to testnet if chain_id not found
+                self.venear_contracts
+                    .get("testnet")
+                    .expect("No venear contracts found for current chain_id or testnet fallback")
+            })
+    }
+
     pub fn is_venear_contract(&self, account_id: &str) -> bool {
-        self.venear_contracts.iter().any(|id| account_id.contains(id))
+        self.get_venear_contracts().iter().any(|id| account_id.contains(id))
     }
 }

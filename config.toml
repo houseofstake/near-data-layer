@@ -29,12 +29,6 @@ api_chain_id = "testnet"
 api_finality = "final"
 
 # Other
-venear_contracts = [
-    "r-1745564650.testnet",
-    "r-1746683627.testnet", 
-    "r-1748895584.testnet",
-    'hos-07.testnet'
-]
 log_level = "info"
 app_version = "v1.0.0"
 
@@ -42,3 +36,19 @@ app_version = "v1.0.0"
 datadog_enabled = true
 # dd_api_key = set_in_env
 environment = 'development'
+dd_environment = 'development'
+
+# Contract Configuration
+[venear_contracts]
+testnet = [
+    "r-1745564650.testnet",
+    "r-1746683627.testnet", 
+    "r-1748895584.testnet",
+    'hos-07.testnet'
+]
+mainnet = [
+    "r-1745564650.testnet",
+    "r-1746683627.testnet", 
+    "r-1748895584.testnet",
+    'hos-07.testnet'
+]

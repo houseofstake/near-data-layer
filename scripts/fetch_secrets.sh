@@ -25,6 +25,8 @@ fi
 
 # Set ENVIRONMENT from environment variable if not already set  
 export INDEXER_ENVIRONMENT=${INDEXER_ENVIRONMENT:-${ENVIRONMENT:-development}}
+export INDEXER_DD_ENVIRONMENT=${INDEXER_DD_ENVIRONMENT:-${DD_ENVIRONMENT:-development}}
+
 
 # Set RUST_LOG if not already set
 export RUST_LOG=${RUST_LOG:-${INDEXER_LOG_LEVEL:-info}}

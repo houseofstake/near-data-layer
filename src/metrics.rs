@@ -7,11 +7,11 @@ pub struct DataDogMetrics {
     client: Client,
     api_key: Option<String>,
     enabled: bool,
-    environment: String,
+    dd_environment: String,
 }
 
 impl DataDogMetrics {
-    pub fn new(api_key: Option<String>, enabled: bool, environment: String) -> Self {
+    pub fn new(api_key: Option<String>, enabled: bool, dd_environment: String) -> Self {
         let client = Client::new();
         
         let has_api_key = api_key.is_some();
@@ -26,7 +26,7 @@ impl DataDogMetrics {
             client,
             api_key,
             enabled: enabled && has_api_key,
-            environment,
+            dd_environment,
         }
     }
 
@@ -55,7 +55,7 @@ impl DataDogMetrics {
                     "points": [[now, block_age_seconds]],
                     "tags": [
                         "service:near-indexer",
-                        format!("env:{}", self.environment)
+                        format!("env:{}", self.dd_environment)
                     ]
                 }
             ]
