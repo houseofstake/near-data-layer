@@ -73,7 +73,6 @@ impl Indexer {
         };
 
         // Log configuration being used
-        info!("Using NEAR API URL: {}", self.settings.api_url);
         info!("API key length: {}", self.settings.api_auth_token.as_ref().map(|k| k.len()).unwrap_or(0));
         info!("Using chain ID: {}", self.settings.api_chain_id);
         info!("Using finality: {}", self.settings.api_finality);

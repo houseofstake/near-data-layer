@@ -14,7 +14,6 @@ pub struct Settings {
     pub db_max_connections: u32,
     pub db_schema: String,
     // NEAR API
-    pub api_url: String,
     pub api_auth_token: Option<String>,
     pub api_chain_id: String,
     pub api_finality: String,
