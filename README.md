@@ -1,261 +1,158 @@
 # NEAR Data Layer
 
-A high-performance, real-time blockchain data indexing infrastructure that powers the Agora web application. This data layer provides sub-second latency access to NEAR blockchain data through a simple streaming architecture that leverages StreamingFast Substreams and PostgreSQL.
+## NEAR Blockchain Indexer
 
+A Rust-based blockchain indexer for NEAR protocol that extracts veNEAR contract interactions and stores them in PostgreSQL.
 
-## Architecture Overview
+### Architecture
 
-The NEAR data layer is built on a modern streaming architecture that processes blockchain data in real-time:
-![agora-near-arch-diagram](https://github.com/user-attachments/assets/a6b36e54-d8a5-4f0e-949c-3ce652ec27e0)
-
-```
-NEAR Blockchain → Pinax Substreams → substreams-sink-sql → PostgreSQL → Agora BE/FE
-```
-
-### Key Components
-
-1. **Pinax-hosted Substreams**: Hosted deployment of custom NEAR substreams packages
-2. **StreamingFast Infrastructure**: Powers the real-time data streaming using `substreams-sink-sql`
-3. **PostgreSQL Database**: Shared data store serving both the indexer and Agora backend
-4. **GCP Infrastructure**: Cloud-based deployment with Compute Engine VM and CloudSQL
-
-### Performance Characteristics
-
-- **Blockchain to PostgreSQL latency**: Tens of milliseconds
-- **End-to-end query latency**: Hundreds of milliseconds
-- **Data processing**: Real-time streaming using Rust and gRPC
-- **Cost efficiency**: ~$40/month for Pinax hosting
-- **Data optimization**: Preemptive filtering keeps indexed tables lightweight
-
-## Data Model
-
-![Data Model](https://github.com/user-attachments/assets/244ae41f-f40f-45ef-8f5c-c385fe01860c)
-
-### Core Tables
-
-- **`blocks`**: NEAR blockchain blocks with metadata
-- **`receipt_actions`**: Function call actions and their parameters
-- **`execution_outcomes`**: Results of action execution including gas usage and logs
-
-### Views
-
-The data layer includes several optimized views for the Agora application:
-
-- **`proposals`**: Governance proposals with voting metadata
-- **`registered_voters`**: veNEAR token holders eligible to vote
-- **`proposal_voting_history`**: Individual vote records
-- **`delegation_events`**: Voting power delegation transactions
-- **`approved_proposals`**: Proposals approved for public voting
-
-## Infrastructure & Deployment
-
-### Cloud Architecture
-
-- **Substreams**: Hosted on Pinax infrastructure
-- **Compute**: GCP Compute Engine VM running the indexer service
-- **Database**: CloudSQL PostgreSQL instance (shared with Agora backend)
-- **Infrastructure as Code**: Fully terraformed deployment (separate repo)
-- **CI/CD**: Automated redeployment of indexer service
-- **CI/CD**: Automated deployment of view definition updates (in progress)
-
-## Quick Start
+![Data Layer Architecture](docs/data-layer-architecture-diagram.png)
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Google Cloud SDK
-- PINAX API key
+- **Rust** (1.70 or higher) - Install from [rustup.rs](https://rustup.rs/)
+- **PostgreSQL** (12 or higher)
+- **Docker & Docker Compose** (for containerized setup)
 
-### Local Development Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd near-data-layer
-   ```
-
-2. **Set up GCP credentials** (for production secrets)
-   ```bash
-   # Install Google Cloud SDK
-   brew install google-cloud-sdk
-
-   # Authenticate
-   gcloud auth application-default login
-   ```
-   This will create a credentials file at `~/.config/gcloud/application_default_credentials.json` which will be automatically mounted into the container.
-
-3. **Configure environment variables**
-
-   Create a `.env` file:
-   ```env
-   DSN=postgres://dev-node:insecure-change-me-in-prod@postgres:5432/dev-node?sslmode=disable
-   ENDPOINT=near.substreams.pinax.network:443
-   SUBSTREAMS_API_KEY=your_pinax_api_key_here
-   ```
-
-   The application will:
-   - First check for a local `.env` file in the project root
-   - If no `.env` file is found, it will attempt to fetch secrets from GCP Secret Manager
-   - Make sure you have GCP credentials set up (see GCP Credentials Setup section) if you plan to use GCP Secret Manager
-
-4. **Start the services**
-   ```bash
-   docker-compose up --build
-   ```
-
-   This starts:
-   - PostgreSQL database (port 5432)
-   - pgweb interface (http://localhost:8081)
-   - NEAR sink container with real-time indexing
-
-### Development Tools
-
-#### Requirements for Local Development
-
-**Install via Homebrew (recommended):**
-```bash
-# Core development tools
-brew install rust
-brew install buf
-brew install streamingfast/tap/substreams
-brew install streamingfast/tap/substreams-sink-sql
-```
-
-**Additional setup:**
-```bash
-# Add WebAssembly target for Rust
-rustup target add wasm32-unknown-unknown
-```
-
-**Alternative installations (if Homebrew not available):**
-- **Rust**: Install from [rustup.rs](https://rustup.rs)
-- **buf**: Download from [buf.build](https://buf.build/docs/installation)
-- **Substreams CLI**: Download from [GitHub releases](https://github.com/streamingfast/substreams/releases)
-- **Sink SQL**: Download from [substreams-sink-sql releases](https://github.com/streamingfast/substreams-sink-sql/releases)
-
-#### Building the Substreams Package
+### Quick Start
 
 ```bash
-# Generate protobuf files
-make protogen
+# Start with Docker
+docker-compose up -d
 
-# Build the WASM module
-make build
-
-# Package the substreams
-substreams pack
-
-# Optional: Set up the database sink
-make setup_sink
-
-# Optional: Run the sink locally
-make run_sink
+# Or run locally
+cargo run -- init    # Initialize database
+cargo run -- start   # Start indexing
 ```
 
-## Configuration
+#### Docker Containers
 
-### Environment Variables
+The docker-compose setup builds two containers:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DSN` | PostgreSQL connection string | Local docker postgres |
-| `ENDPOINT` | NEAR Substreams endpoint | `near.substreams.pinax.network:443` |
-| `SUBSTREAMS_API_KEY` | PINAX API key for access | Required |
-| `GOOGLE_APPLICATION_CREDENTIALS` | GCP service account path | Auto-mounted in Docker |
+- **`postgres`**: PostgreSQL database (builds from `Dockerfile.postgres`)
+- **`near-sink-sql`**: The indexer application (builds from main `Dockerfile`)
 
-### Substreams Configuration
+### Configuration
 
-The substreams package is configured in `substreams.yaml`:
+Edit `config.toml` for basic settings:
 
-- **Initial TestNet Block**: 162542069 (May 2024)
-- **Network**: NEAR testnet
-- **Filtering**: Optimized for Agora-specific data requirements, configurable in `config/`
+```toml
+db_host = "localhost"
+db_port = 5432
+db_database = "near_indexer"
+db_username = "postgres"
+db_password = "password"
+db_schema = "fastnear"
 
-### Database Schema
+start_block = 183500000
+batch_size = 10
+num_threads = 64
 
-The PostgreSQL schema (`schema.sql`) includes:
+# Important: Change this to trigger a backfill
+app_version = "1.0.0"
 
-- Core blockchain data tables
-- Optimized indexes for query performance
+venear_contracts = [
+    "r-1745564650.testnet",
+    "r-1746683627.testnet"
+]
+```
 
-## Data Processing Pipeline
+The indexer only processes transactions that interact with contracts listed in `venear_contracts`, filtering out all other blockchain activity.
 
-### 1. Blockchain Data Ingestion
-- Real-time streaming from NEAR blockchain
-- Substreams filters and processes relevant transactions
-- Focus on governance-related actions (proposals, voting, delegation)
+#### Environment Variables
 
-### 2. Data Transformation
-- Receipt actions are decoded and structured
-- Execution outcomes provide success/failure status
-- Base64-encoded arguments are parsed into JSON
+You can override any configuration setting using environment variables with the `INDEXER_` prefix. Create a `.env` file in the project root or set environment variables directly:
 
-### 3. Database Updates
-- Streaming inserts into PostgreSQL tables
-- Optimized for both write performance and query speed
+```bash
+# .env file example
+INDEXER_DB_HOST=production-db.example.com
+INDEXER_DB_PASSWORD=secure_password
+INDEXER_START_BLOCK=184000000
+INDEXER_APP_VERSION=1.0.1
+INDEXER_LOG_LEVEL=debug
+```
 
-### 4. API Layer
-- Shared PostgreSQL instance serves Agora backend
-- Non-materialized views provide real-time data access
+Environment variables take precedence over `config.toml` values, making it easy to override settings for different deployments without modifying the configuration file.
 
-## Monitoring & Operations
+### Block Tracking & Backfills
 
-### Health Checks
+The indexer tracks its progress using a cursor system that stores the last processed block for each app version. This enables reliable resumption after restarts and controlled backfilling when needed.
 
-WIP
+#### How Progress Tracking Works
 
-### Logs & Debugging
+The `cursors` table maintains indexing state with:
+- **id**: App version from configuration 
+- **block_num**: Last successfully processed block height
+- **block_id**: Hash of the last processed block
 
-WIP
+When starting, the indexer determines which block to begin from using this precedence:
+1. **CLI argument**: `--start-block <number>` (highest priority)
+2. **Database cursor**: Last processed block for the current app version
+3. **Configuration file**: `start_block` value (fallback)
 
-## Development Workflow
+#### Normal Operations
 
-### Making Schema Changes
+During normal operations (deployments without logic changes, VM restarts), the indexer automatically resumes from its last cursor position. This ensures continuous processing without gaps or duplicate work.
 
-**Most schema changes will trigger a backfill unless it the indexer is explicitly set to ignore the mismatch.**
+#### Triggering Backfills
 
-1. Update `schema.sql` with new table/index definitions
-2. Update substreams modules in `src/` if needed
-3. Rebuild and redeploy via CI/CD
+To reprocess historical data, you must manually increment the `app_version` in your configuration:
 
-## Contributing
+1. **Update version**: Change `app_version` in `config.toml` (e.g., "1.0.0" → "1.0.1")
+2. **Set starting point**: Update `start_block` to your desired starting block
+3. **Deploy**: Restart the indexer with the new configuration
 
-### Development Setup
+The new app version creates a separate cursor entry, allowing the indexer to process from your specified starting block while preserving the original processing state.
 
-1. Fork the repository
-2. Set up local development environment
-3. Make changes and test locally
-4. Submit pull request with comprehensive testing
+### Source Files
 
-### Code Style
+- **`main.rs`**: Entry point, CLI argument parsing, command dispatch
+- **`config.rs`**: Configuration loading from file and environment variables
+- **`database.rs`**: PostgreSQL connection, table operations, cursor management
+- **`indexer.rs`**: Main indexing logic, block fetching, starting block determination
+- **`processor.rs`**: Receipt processing, data extraction, filtering veNEAR contracts
 
-- Rust code follows standard formatting (`cargo fmt`)
-- SQL follows consistent naming conventions
+### Commands
 
-## Troubleshooting
+- `cargo run -- init` - Initialize database by creating tables and views
+- `cargo run -- start [--start-block <block>] [--num-threads <threads>]` - Start indexing
 
-### Common Issues
+## SQL Views & Analytics
 
-1. **Substreams connection failures**
-   - Verify PINAX API key is valid
-   - Check endpoint connectivity
-   - Review authentication setup
+The indexer creates analytical SQL views for querying governance and veNEAR data. All views are located in the `sql_views/` directory.
 
-2. **Database connection issues**
-   - Ensure PostgreSQL container is running
-   - Verify DSN connection string
-   - Check port availability
+### Available Views
 
-3. **Performance issues**
-   - Monitor PostgreSQL query performance
-   - Check materialized view refresh schedules
-   - Verify index usage
+- **`proposals`** - Comprehensive governance proposal data with voting metadata, approval status, and vote counts
+- **`registered_voters`** - veNEAR token holders eligible to participate in governance voting
+- **`proposal_voting_history`** - Individual vote records showing user voting patterns and choices
+- **`user_activities`** - Summary of user interactions with veNEAR contracts and governance
+- **`delegation_events`** - Vote delegation actions and delegate relationships
+- **`approved_proposals`** - Proposals that have passed governance review and are eligible for public voting
+- **`proposal_non_voters`** - Analysis of eligible voters who did not participate in specific proposals
 
-### Support
+### Helper Functions
 
-For technical issues:
-1. Check container logs: `docker-compose logs`
-2. Review PostgreSQL logs for query issues
-3. Verify substreams processing status
-4. Contact team for infrastructure access
+The `helper_queries/` directory contains utility functions:
 
+- **`safe_json_parse.sql`** - Parse JSON with error handling
+
+### Usage Examples
+
+```sql
+-- Get all active proposals with vote counts
+SELECT proposal_id, proposal_name, vote_count_for, vote_count_against 
+FROM proposals 
+WHERE proposal_status = 'Active';
+
+-- Find top voters by participation
+SELECT voter_account, COUNT(*) as votes_cast
+FROM proposal_voting_history 
+GROUP BY voter_account 
+ORDER BY votes_cast DESC;
+
+-- Check delegation relationships
+SELECT delegator, delegate, delegation_timestamp
+FROM delegation_events 
+ORDER BY delegation_timestamp DESC;
+```

@@ -7,13 +7,13 @@
    1. A proposal approver ID                                              (eg. lighttea2007.testnet) 
    2. The related House of Stake Contract                                 (Voter contract address, vote.r-1745564650.testnet)
    3. The date + timestamp at which the proposal approval action occurred 
-   4. The block-related data for this approve_proposal action             (Block hash/id, block height) 
+   4. The block-related data for this approve_proposal action             (Block hash or id, block height) 
 */
 
-CREATE VIEW approved_proposals AS
+CREATE OR REPLACE VIEW {SCHEMA_NAME}.approved_proposals AS
 WITH execution_outcomes_prep AS (
 	SELECT
-		SPLIT_PART(receipt_id, '-', 2) AS receipt_id
+		receipt_id 
 		, status
 		, logs
 	FROM execution_outcomes
@@ -23,7 +23,6 @@ WITH execution_outcomes_prep AS (
     	decode(ra.args_base64, 'base64') AS args
     	, eo.status
     	, eo.logs
-    	, base58_encode(ra.receipt_id) AS encoded_receipt_id
     	, ra.*
   	FROM receipt_actions AS ra
   	INNER JOIN execution_outcomes_prep AS eo
@@ -39,15 +38,19 @@ WITH execution_outcomes_prep AS (
   	ORDER BY block_height DESC
  )
  SELECT
- 	base58_encode(ra.receipt_id) AS id
- 	, base58_encode(ra.receipt_id) AS receipt_id
- 	, DATE(ra.block_timestamp)     AS proposal_approved_date
- 	, ra.block_timestamp           AS proposal_approved_at
+ 	ra.receipt_id AS id
+ 	, ra.receipt_id AS receipt_id
+ 	, DATE(ra.block_timestamp) AS proposal_approved_date
+ 	, ra.block_timestamp AS proposal_approved_at
 
  	--Proposal Details
- 	, ra.receiver_id           												   AS hos_contract_address
- 	, (convert_from(ra.args, 'UTF8')::json->>'proposal_id')::numeric           AS proposal_id
- 	, ra.signer_account_id     												   AS proposal_approver_id
+ 	, ra.receiver_id AS hos_contract_address
+ 	, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS proposal_id
+ 	, ra.signer_account_id AS proposal_approver_id
 
  	--Block details
  	, ra.block_hash

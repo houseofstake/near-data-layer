@@ -1,64 +1,53 @@
+# Use Rust slim image
 FROM rust:1.86-slim
 
-# Install required dependencies
+# Install all dependencies (build + runtime + gcloud CLI)
 RUN apt-get update && apt-get install -y \
     build-essential \
-    curl \
-    git \
     pkg-config \
     libssl-dev \
-    unzip \
-    wget \
+    curl \
+    git \
+    ca-certificates \
+    libpq5 \
     gnupg \
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && apt-get update && apt-get install -y google-cloud-cli \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Google Cloud SDK
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
-    apt-get update && apt-get install -y google-cloud-sdk && \
-    rm -rf /var/lib/apt/lists/*
-
-# Set the working directory
-WORKDIR /app
 
 # Add wasm32-unknown-unknown target
 RUN rustup target add wasm32-unknown-unknown
 
-# Install buf for protobuf
-RUN curl -sSL \
-    "https://github.com/bufbuild/buf/releases/download/v1.28.1/buf-$(uname -s)-$(uname -m)" \
-    -o /usr/local/bin/buf && \
-    chmod +x /usr/local/bin/buf
+# Set working directory
+WORKDIR /app
 
-# Install substreams 
-RUN wget "https://github.com/streamingfast/substreams/releases/download/v1.15.3/substreams_linux_x86_64.tar.gz" && \
-    tar -xzf "substreams_linux_x86_64.tar.gz" && \
-    mv substreams /usr/local/bin/ && \
-    rm "substreams_linux_x86_64.tar.gz"
+# Copy dependency files and create dummy main.rs for dependency caching
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs
 
-# Install substreams-sink-sql
-RUN wget "https://github.com/streamingfast/substreams-sink-sql/releases/download/v4.5.0/substreams-sink-sql_linux_x86_64.tar.gz" && \
-    tar -xzf "substreams-sink-sql_linux_x86_64.tar.gz" && \
-    mv substreams-sink-sql /usr/local/bin/ && \
-    rm "substreams-sink-sql_linux_x86_64.tar.gz"
+# Build dependencies only (this will be cached unless Cargo.toml/Cargo.lock changes)
+RUN cargo build --release && rm -rf src target/release/deps/near_indexer*
 
-# Copy application files
-COPY . .
+# Copy real source files
+COPY src/ ./src/
 
-# Generate protobuf files and build the project
-RUN substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/" && \
-    cargo build --target wasm32-unknown-unknown --release
+# Copy remaining files
+COPY sql_files/ ./sql_files/
+COPY config.toml ./
+COPY scripts/ ./scripts/
 
-# Make the copy env script executable
-RUN chmod +x /app/scripts/fetch_secrets.sh
+# Copy .env file if it exists (wildcard pattern won't fail if missing)
+COPY .env* ./
 
-# Set the entrypoint to source our script and execute the command
-ENTRYPOINT ["/bin/bash", "-c", "source /app/scripts/fetch_secrets.sh && exec \"$@\"", "--"]
+# Build the actual application (fast since dependencies are cached)
+RUN cargo build --release
 
-# Set the default command to run the sink
-CMD ["make", "setup_sink", "run_sink"]
+# Make scripts executable and create entrypoint
+RUN chmod +x ./scripts/*.sh && \
+    printf '#!/bin/bash\nset -e\n\necho "Starting NEAR Indexer container..."\n\necho "Fetching configuration..."\nsource ./scripts/fetch_secrets.sh\n\necho "Initializing database..."\n./target/release/near-indexer init || echo "Database already initialized or init failed - continuing"\n\necho "Starting indexer..."\nexec ./target/release/near-indexer start\n' > entrypoint.sh && \
+    chmod +x entrypoint.sh
 
-# Required environment variables (provided at runtime)
-# DSN - PostgreSQL connection string 
-# ENDPOINT - PINAX endpoint
-# SUBSTREAMS_API_KEY - PINAX API KEY 
+# Set environment and default command
+ENV RUST_LOG=info
+ENTRYPOINT ["./entrypoint.sh"] 

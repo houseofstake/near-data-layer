@@ -1,19 +1,21 @@
-.PHONY: build protogen stream_db_out run_sink setup clean
+# TO UPDATE:
 
-build:
-	cargo build --target wasm32-unknown-unknown --release
+# .PHONY: build protogen stream_db_out run_sink setup clean
 
-protogen:
-	substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/"
+# build:
+# 	cargo build --target wasm32-unknown-unknown --release
 
-stream_db_out:
-	substreams run -e $(ENDPOINT) substreams.yaml db_out -s -10
+# protogen:
+# 	substreams protogen ./substreams.yaml --exclude-paths="sf/substreams,google/"
 
-setup_sink:
-	substreams-sink-sql setup $(DSN) ./sink/substreams.dev.yaml
+# stream_db_out:
+# 	substreams run -e $(ENDPOINT) substreams.yaml db_out -s -10
 
-run_sink:
-	RUST_LOG=debug substreams-sink-sql run $(DSN) sink/substreams.dev.yaml --endpoint $(ENDPOINT) --on-module-hash-mistmatch=ignore
+# setup_sink:
+# 	substreams-sink-sql setup '$(DSN)' ./substreams.yaml
 
-clean:
-	cargo clean
+# run_sink:
+# 	RUST_LOG=debug substreams-sink-sql run '$(DSN)' ./substreams.yaml --endpoint $(ENDPOINT) --on-module-hash-mistmatch=ignore
+
+# clean:
+# 	cargo clean

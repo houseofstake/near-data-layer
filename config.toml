@@ -1,0 +1,49 @@
+# This configuration file provides default values for the NEAR indexer.
+# Values marked with "set_in_env" and any other settings can be overridden
+# by environment variables using the format "INDEXER_{SECTION}_{KEY}"
+# For example: INDEXER_DB_HOST=localhost will override db_host
+
+# Database Configuration
+db_host = "postgres"  # Docker service name for postgres
+db_port = 5432
+
+db_database = "postgres"
+db_username = "postgres"
+db_password = "postgres"
+
+db_schema = "fastnear"
+db_max_connections = 10
+
+# Indexer Configuration
+start_block = 207797689 # first proposal block 199579301, jan 1st block 183500000
+batch_size = 10
+poll_interval = 1
+max_retries = 3
+retry_delay = 5
+num_threads = 64
+
+# NEAR API Configuration
+# api_auth_token = set_in_env
+api_chain_id = "testnet"
+api_finality = "final"
+
+# Other
+log_level = "info"
+app_version = "v1.0.1"
+
+# DataDog Configuration
+datadog_enabled = true
+# dd_api_key = set_in_env
+environment = 'development'
+dd_environment = 'development'
+
+# Contract Configuration
+[venear_contracts]
+testnet = [
+    'hos-07.testnet'
+]
+mainnet = [
+    # TODO: Add mainnet contract addresses when ready
+    # "contract1.near",
+    # "contract2.near"
+]
