@@ -72,8 +72,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'on_lockup_deployed'
 		AND ra.receiver_id IN (          
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
+ 			'v.hos-07.testnet'      
+ 			, 'vote.hos-07.testnet' 
  			)
 )
 -------------
@@ -109,8 +109,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'lock_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
+ 			'v.hos-07.testnet'      
+ 			, 'vote.hos-07.testnet' 
  			)
 )
 , on_lockup_update_prep AS (
@@ -149,8 +149,8 @@ WITH execution_outcomes_prep AS (
     WHERE 
     	ra.method_name = 'on_lockup_update'
         AND ra.receiver_id IN (        
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
+ 			'v.hos-07.testnet'      
+ 			, 'vote.hos-07.testnet' 
  			)
     GROUP BY 1,2,3,4,5,6,7,8,9
 )
@@ -210,8 +210,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name IN ('delegate_all', 'undelegate')
 		AND ra.receiver_id IN (           
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
+ 			'v.hos-07.testnet'      
+ 			, 'vote.hos-07.testnet' 
  			)
 )
 ---------------------
@@ -239,8 +239,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'begin_unlock_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
+ 			'v.hos-07.testnet'      
+ 			, 'vote.hos-07.testnet' 
  			)
  )
 ------------------------
@@ -268,8 +268,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'lock_pending_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (           
- 			'v.r-1748895584.testnet'  
- 			, 'vote.r-1748895584.testnet' 
+  			'v.hos-07.testnet'      
+ 			, 'vote.hos-07.testnet' 
  			)
  )
  ----------

@@ -32,10 +32,10 @@ WITH execution_outcomes_prep AS (
  		AND eo.status = 'SuccessValue'
   	WHERE 
     	ra.action_kind = 'FunctionCall'
-    	AND ra.receiver_id IN (           --House of Stake contracts
- 			'v.r-1748895584.testnet'      --veNEAR contract 
- 			, 'vote.r-1748895584.testnet' --Voting contract 
- 			) 
+    	AND ra.receiver_id IN (     --House of Stake contracts
+ 			'v.hos-07.testnet'      --veNEAR contract 
+ 			, 'vote.hos-07.testnet' --Voting contract 
+ 			)
 )
 , proposal_metadata AS (
 	SELECT 
