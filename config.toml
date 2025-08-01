@@ -15,7 +15,7 @@ db_schema = "fastnear"
 db_max_connections = 10
 
 # Indexer Configuration
-start_block = 183500000 # first proposal block 199579301, jan 1st block 183500000
+start_block = 207797689 # first proposal block 199579301, jan 1st block 183500000
 batch_size = 10
 poll_interval = 1
 max_retries = 3
@@ -29,7 +29,7 @@ api_finality = "final"
 
 # Other
 log_level = "info"
-app_version = "v1.0.0"
+app_version = "v1.0.1"
 
 # DataDog Configuration
 datadog_enabled = true
@@ -40,9 +40,6 @@ dd_environment = 'development'
 # Contract Configuration
 [venear_contracts]
 testnet = [
-    "r-1745564650.testnet",
-    "r-1746683627.testnet", 
-    "r-1748895584.testnet",
     'hos-07.testnet'
 ]
 mainnet = [
