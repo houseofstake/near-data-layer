@@ -122,8 +122,8 @@ impl Processor {
                 let predecessor_id = receipt.predecessor_id.to_string();
                 let receipt_id = receipt.receipt_id.to_string();
 
-                // Filter for VeNear contracts
-                if self.settings.is_venear_contract(&receiver_id) || self.settings.is_venear_contract(&predecessor_id) {
+                // Filter for HOS contracts
+                if self.settings.is_hos_contract(&receiver_id) || self.settings.is_hos_contract(&predecessor_id) {
                     // Process receipt actions
                     if let ReceiptEnumView::Action { 
                         signer_id, 

@@ -1,7 +1,6 @@
 use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 use dotenvy;
-use std::collections::HashMap;
 
 #[derive(Deserialize, Clone)]
 pub struct Settings {
@@ -16,16 +15,13 @@ pub struct Settings {
     // NEAR API
     pub api_auth_token: Option<String>,
     pub api_chain_id: String,
-    pub api_finality: String,
     // Indexer
     pub start_block: u64,
-    pub batch_size: u32,
     pub poll_interval: u64,
-    pub max_retries: u32,
     pub retry_delay: u64,
     pub num_threads: u64,
     // Other
-    pub venear_contracts: HashMap<String, Vec<String>>,
+    pub hos_contracts: Vec<String>,
     pub log_level: String,
     // App version (from config file)
     pub app_version: String,
@@ -41,8 +37,22 @@ impl Settings {
         // Load .env file if present, so env vars are available for config
         dotenvy::dotenv().ok();
 
+        // Determine config file based on required INDEXER_API_CHAIN_ID environment variable
+        let chain_id = std::env::var("INDEXER_API_CHAIN_ID")
+            .map_err(|_| ConfigError::Message(
+                "INDEXER_API_CHAIN_ID environment variable is required. Set to 'testnet' or 'mainnet'".to_string()
+            ))?;
+
+        let config_file = match chain_id.as_str() {
+            "testnet" => "configs/testnet.toml",
+            "mainnet" => "configs/mainnet.toml",
+            _ => return Err(ConfigError::Message(
+                format!("Unsupported chain_id '{}'. Must be 'testnet' or 'mainnet'", chain_id)
+            )),
+        };
+
         let config = Config::builder()
-            .add_source(File::with_name("config.toml").required(true))
+            .add_source(File::with_name(config_file).required(true))
             .add_source(Environment::with_prefix("INDEXER"))
             .build()?;
 
@@ -61,18 +71,11 @@ impl Settings {
         )
     }
 
-    pub fn get_venear_contracts(&self) -> &Vec<String> {
-        self.venear_contracts
-            .get(&self.api_chain_id)
-            .unwrap_or_else(|| {
-                // Fallback to testnet if chain_id not found
-                self.venear_contracts
-                    .get("testnet")
-                    .expect("No venear contracts found for current chain_id or testnet fallback")
-            })
+    pub fn get_hos_contracts(&self) -> &Vec<String> {
+        &self.hos_contracts
     }
 
-    pub fn is_venear_contract(&self, account_id: &str) -> bool {
-        self.get_venear_contracts().iter().any(|id| account_id.contains(id))
+    pub fn is_hos_contract(&self, account_id: &str) -> bool {
+        self.hos_contracts.iter().any(|id| account_id.contains(id))
     }
 }

@@ -10,15 +10,19 @@ The indexer only processes transactions that interact with contracts listed in t
 
 ### Configuration Structure
 
-Contracts are defined in the `config.toml` file under the `[venear_contracts]` section, organized by network:
+Contracts are defined in the appropriate config file as a simple list:
 
+**configs/testnet.toml:**
 ```toml
-[venear_contracts]
-testnet = [
+hos_contracts = [
     'hos-07.testnet',
     'another-contract.testnet'
 ]
-mainnet = [
+```
+
+**configs/mainnet.toml:**
+```toml
+hos_contracts = [
     'contract1.near',
     'contract2.near'
 ]
@@ -26,10 +30,11 @@ mainnet = [
 
 ### Adding New Contracts
 
-1. **Edit `config.toml`**:
+1. **Edit the appropriate config file**:
+   
+   **For testnet (`configs/testnet.toml`):**
    ```toml
-   [venear_contracts]
-   testnet = [
+   hos_contracts = [
        'hos-07.testnet',
        'new-contract.testnet',  # <- Add new contract here
        'another-new.testnet'
@@ -49,9 +54,9 @@ mainnet = [
 
 ### Network Selection
 
-The indexer automatically selects contracts based on the `api_chain_id` setting:
-- `testnet` → uses contracts from `venear_contracts.testnet`
-- `mainnet` → uses contracts from `venear_contracts.mainnet`
+The indexer automatically selects the appropriate config file based on the `INDEXER_API_CHAIN_ID` environment variable:
+- `testnet` → loads `configs/testnet.toml` with its `hos_contracts` list
+- `mainnet` → loads `configs/mainnet.toml` with its `hos_contracts` list
 
 ### Important Notes
 
@@ -283,9 +288,14 @@ For production deployments, sensitive or environment-specific values should be s
 
 1. **Navigate to**: GitHub repo → Settings → Secrets and variables → Actions
 2. **Add/Update secrets** such as:
-   - `INDEXER_DB_PASSWORD`
-   - `INDEXER_API_AUTH_TOKEN` 
-   - `INDEXER_DD_API_KEY` (required for DataDog metrics)
+   - `INDEXER_API_CHAIN_ID` (required - set to "testnet" or "mainnet")
+   - `INDEXER_DB_HOST` (database host)
+   - `INDEXER_DB_USERNAME` (database username)
+   - `INDEXER_DB_PASSWORD` (database password)
+   - `INDEXER_API_AUTH_TOKEN` (FastNEAR API token)
+   - `INDEXER_DD_API_KEY` (DataDog API key for metrics)
+   - `INDEXER_ENVIRONMENT` (optional - defaults to "development")
+   - `INDEXER_DD_ENVIRONMENT` (optional - defaults to "development")
 3. **Update environment variables** in your deployment configuration
 
 ### Deployment Workflow
@@ -368,6 +378,12 @@ If a deployment needs to be rolled back:
 ## Quick Reference Commands
 
 ```bash
+# Set environment for testnet (local development)
+export INDEXER_API_CHAIN_ID="testnet"
+
+# Set environment for mainnet (production)
+export INDEXER_API_CHAIN_ID="mainnet"
+
 # Initialize database tables (local)
 cargo run -- init
 
@@ -380,11 +396,11 @@ cargo run -- start --start-block 184000000
 # Start with custom thread count (local)
 cargo run -- start --num-threads 32
 
-# Check configuration
-cat config.toml
+# Check current configuration
+cat configs/testnet.toml   # or configs/mainnet.toml
 
 # Deploy configuration changes
-git add config.toml
+git add configs/
 git commit -m "Update indexer configuration"
 git push origin main
 
