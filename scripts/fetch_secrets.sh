@@ -23,12 +23,12 @@ else
     export INDEXER_DD_API_KEY=$(gcloud secrets versions access latest --secret=DD_API_KEY)
 fi
 
-# Set ENVIRONMENT from environment variable if not already set  
+# Set environment variables from Terraform variables  
+export INDEXER_API_CHAIN_ID=${INDEXER_API_CHAIN_ID:-${API_CHAIN_ID}}
 export INDEXER_ENVIRONMENT=${INDEXER_ENVIRONMENT:-${ENVIRONMENT:-development}}
 export INDEXER_DD_ENVIRONMENT=${INDEXER_DD_ENVIRONMENT:-${DD_ENVIRONMENT:-development}}
-
 
 # Set RUST_LOG if not already set
 export RUST_LOG=${RUST_LOG:-${INDEXER_LOG_LEVEL:-info}}
 
-echo "Environment variables configured for NEAR indexer" 
+echo "Environment variables configured for NEAR indexer (chain: $INDEXER_API_CHAIN_ID, env: $INDEXER_ENVIRONMENT)" 
