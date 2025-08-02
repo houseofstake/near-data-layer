@@ -2,34 +2,59 @@ use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 use dotenvy;
 
+/*
+ * CONFIGURATION SOURCES HIERARCHY (in order of precedence):
+ * 
+ * 1. CONFIG FILES (.toml) - Base configuration loaded from configs/testnet.toml or configs/mainnet.toml
+ *    - Contains default values for non-sensitive settings
+ *    - File selection based on INDEXER_API_CHAIN_ID environment variable
+ * 
+ * 2. TERRAFORM VARIABLES (TF_VARS) - Non-sensitive environment variables set by Terraform deployment
+ *    - Passed as INDEXER_* environment variables from terraform vm.tf
+ *    - Override config file values for deployment-specific settings
+ * 
+ * 3. SECRETS MANAGER (SECRETS) - Sensitive values fetched via fetch_secrets.sh script
+ *    - Retrieved from Google Cloud Secret Manager
+ *    - Highest precedence for security-sensitive configuration
+ * 
+ * All environment variables with "INDEXER_" prefix override config file values.
+ */
+
 #[derive(Deserialize, Clone)]
 pub struct Settings {
-    // Database
-    pub db_host: String,
-    pub db_port: u16,
-    pub db_database: String,
-    pub db_username: String,
-    pub db_password: String,
-    pub db_max_connections: u32,
-    pub db_schema: String,
-    // NEAR API
-    pub api_auth_token: Option<String>,
-    pub api_chain_id: String,
-    // Indexer
-    pub start_block: u64,
-    pub poll_interval: u64,
-    pub retry_delay: u64,
-    pub num_threads: u64,
-    // Other
-    pub hos_contracts: Vec<String>,
-    pub log_level: String,
-    // App version (from config file)
-    pub app_version: String,
-    // DataDog metrics
-    pub dd_api_key: Option<String>,
-    pub datadog_enabled: bool,
-    pub environment: String,
-    pub dd_environment: String,
+    // Database Configuration
+    pub db_host: String,              // [SECRETS] - Database hostname from secrets manager
+    pub db_port: u16,                 // [CONFIG] - Database port, should be set somewhere else
+    pub db_database: String,          // [CONFIG] - Database name
+    pub db_username: String,          // [SECRETS] - Database username from secrets manager
+    pub db_password: String,          // [SECRETS] - Database password from secrets manager
+    pub db_max_connections: u32,      // [CONFIG] - Connection pool size
+    pub db_schema: String,            // [CONFIG] - Database schema name
+    
+    // NEAR API Configuration
+    pub api_auth_token: Option<String>, // [SECRETS] - FastNEAR API authentication token
+    pub api_chain_id: String,           // [TF_VARS] - Chain identifier (testnet/mainnet) from terraform
+    
+    // Indexer Configuration
+    pub start_block: u64,             // [CONFIG] - Starting block height for indexing
+    pub poll_interval: u64,           // [CONFIG] - Polling interval in milliseconds
+    pub retry_delay: u64,             // [CONFIG] - Retry delay for failed operations
+    pub num_threads: u64,             // [CONFIG] - Number of processing threads
+    
+    // Contract Configuration
+    pub hos_contracts: Vec<String>,   // [CONFIG] - List of HOS contract addresses to monitor
+    
+    // Logging Configuration
+    pub log_level: String,            // [CONFIG] - Log level (debug, info, warn, error)
+    
+    // Application Metadata
+    pub app_version: String,          // [CONFIG] - Application version for cursor tracking
+    
+    // DataDog Metrics Configuration
+    pub dd_api_key: Option<String>,   // [SECRETS] - DataDog API key from secrets manager
+    pub datadog_enabled: bool,        // [TF_VARS] - Enable/disable DataDog metrics via terraform
+    pub environment: String,          // [TF_VARS] - Environment name (development/production) from terraform
+    pub dd_environment: String,       // [TF_VARS] - DataDog environment tag from terraform
 }
 
 impl Settings {
