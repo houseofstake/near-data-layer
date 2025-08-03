@@ -11,7 +11,7 @@ db_schema = "fastnear"
 db_max_connections = 10
 
 # Indexer Configuration
-start_block = 999999999 # TODO: SET TO ACTUAL MAINNET CONTRACT DEPLOYMENT BLOCK
+start_block = 158105595 # TODO: SET TO ACTUAL MAINNET CONTRACT DEPLOYMENT BLOCK
 poll_interval = 1
 retry_delay = 5
 num_threads = 64
