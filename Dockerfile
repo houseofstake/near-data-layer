@@ -34,7 +34,7 @@ COPY src/ ./src/
 
 # Copy remaining files
 COPY sql_files/ ./sql_files/
-COPY config.toml ./
+COPY configs/ ./configs/
 COPY scripts/ ./scripts/
 
 # Copy .env file if it exists (wildcard pattern won't fail if missing)
