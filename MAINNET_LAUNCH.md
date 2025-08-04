@@ -98,8 +98,8 @@ DROP VIEW IF EXISTS fastnear.proposal_non_voters CASCADE;
 -- Drop all tables
 DROP TABLE IF EXISTS fastnear.cursors CASCADE;
 DROP TABLE IF EXISTS fastnear.blocks CASCADE;
-DROP TABLE IF EXISTS fastnear.transactions CASCADE;
-DROP TABLE IF EXISTS fastnear.receipts CASCADE;
+DROP TABLE IF EXISTS fastnear.execution_outcomes  CASCADE;
+DROP TABLE IF EXISTS fastnear.receipt_actions CASCADE;
 
 -- Indexer will crash and restart, recreating everything from scratch
 ```
