@@ -6,6 +6,7 @@
 
 # Database Configuration - set via environment variables
 # db_host, db_database, db_username, db_password set via INDEXER_* env vars
+db_database = "postgres"
 db_port = 5432
 db_schema = "fastnear"
 db_max_connections = 10
