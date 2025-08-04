@@ -31,10 +31,6 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.action_kind = 'FunctionCall'
     	AND ra.method_name = 'approve_proposal'
-    	AND ra.receiver_id IN (     --House of Stake contracts
- 			'v.hos-07.testnet'      --veNEAR contract 
- 			, 'vote.hos-07.testnet' --Voting contract 
- 			)
   	ORDER BY block_height DESC
  )
  SELECT

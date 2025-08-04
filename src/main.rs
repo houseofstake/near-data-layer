@@ -11,7 +11,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 #[derive(Parser)]
 #[command(name = "near-indexer")]
-#[command(about = "NEAR blockchain indexer for veNEAR contracts")]
+#[command(about = "NEAR blockchain indexer for HOS contracts")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]

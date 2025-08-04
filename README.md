@@ -2,7 +2,7 @@
 
 ## NEAR Blockchain Indexer
 
-A Rust-based blockchain indexer for NEAR protocol that extracts veNEAR contract interactions and stores them in PostgreSQL.
+A Rust-based blockchain indexer for NEAR protocol that extracts HOS contract interactions and stores them in PostgreSQL.
 
 ### Architecture
 
@@ -45,19 +45,18 @@ db_password = "password"
 db_schema = "fastnear"
 
 start_block = 183500000
-batch_size = 10
 num_threads = 64
 
 # Important: Change this to trigger a backfill
 app_version = "1.0.0"
 
-venear_contracts = [
+hos_contracts = [
     "r-1745564650.testnet",
     "r-1746683627.testnet"
 ]
 ```
 
-The indexer only processes transactions that interact with contracts listed in `venear_contracts`, filtering out all other blockchain activity.
+The indexer only processes transactions that interact with contracts listed in `hos_contracts`, filtering out all other blockchain activity.
 
 #### Environment Variables
 
@@ -110,7 +109,7 @@ The new app version creates a separate cursor entry, allowing the indexer to pro
 - **`config.rs`**: Configuration loading from file and environment variables
 - **`database.rs`**: PostgreSQL connection, table operations, cursor management
 - **`indexer.rs`**: Main indexing logic, block fetching, starting block determination
-- **`processor.rs`**: Receipt processing, data extraction, filtering veNEAR contracts
+- **`processor.rs`**: Receipt processing, data extraction, filtering HOS contracts
 
 ### Commands
 
@@ -119,14 +118,14 @@ The new app version creates a separate cursor entry, allowing the indexer to pro
 
 ## SQL Views & Analytics
 
-The indexer creates analytical SQL views for querying governance and veNEAR data. All views are located in the `sql_views/` directory.
+The indexer creates analytical SQL views for querying governance and HOS data. All views are located in the `sql_views/` directory.
 
 ### Available Views
 
 - **`proposals`** - Comprehensive governance proposal data with voting metadata, approval status, and vote counts
-- **`registered_voters`** - veNEAR token holders eligible to participate in governance voting
+- **`registered_voters`** - HOS token holders eligible to participate in governance voting
 - **`proposal_voting_history`** - Individual vote records showing user voting patterns and choices
-- **`user_activities`** - Summary of user interactions with veNEAR contracts and governance
+- **`user_activities`** - Summary of user interactions with HOS contracts and governance
 - **`delegation_events`** - Vote delegation actions and delegate relationships
 - **`approved_proposals`** - Proposals that have passed governance review and are eligible for public voting
 - **`proposal_non_voters`** - Analysis of eligible voters who did not participate in specific proposals

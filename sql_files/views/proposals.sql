@@ -31,10 +31,6 @@ WITH execution_outcomes_prep AS (
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
- 		AND ra.receiver_id IN (     --House of Stake contracts
- 			'v.hos-07.testnet'      --veNEAR contract 
- 			, 'vote.hos-07.testnet' --Voting contract 
- 			)
 )
 , create_proposal AS ( 
  	SELECT
@@ -49,22 +45,22 @@ WITH execution_outcomes_prep AS (
  		    WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'proposal_id')::NUMERIC
  		    ELSE NULL 
- 		  END AS proposal_id 
+ 		    END AS proposal_id 
  		, CASE 
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'metadata'->>'title'
  		    ELSE NULL 
- 		  END AS proposal_title
+ 		    END AS proposal_title
  		, CASE 
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'metadata'->>'description'
  		    ELSE NULL 
- 		  END AS proposal_description
+ 		    END AS proposal_description
  		, CASE 
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->'metadata'->>'link'
  		    ELSE NULL 
- 		  END AS proposal_url
+ 		    END AS proposal_url
 	 	, ra.signer_account_id AS proposal_creator_id
 	 	, ra.action_logs 
 	 	
@@ -84,7 +80,7 @@ WITH execution_outcomes_prep AS (
  			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
  			THEN safe_json_parse(ra.results_json::TEXT)->>'receipt_id'
  			ELSE NULL
- 		  END AS snapshot_receipt_id 
+ 		    END AS snapshot_receipt_id 
  		, DATE(ra.block_timestamp) AS proposal_approved_date
  		, ra.block_timestamp AS proposal_approved_at
 
@@ -94,7 +90,7 @@ WITH execution_outcomes_prep AS (
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'proposal_id')::NUMERIC
  		    ELSE NULL 
- 		  END AS proposal_id
+ 		    END AS proposal_id
  		, ra.signer_account_id AS proposal_approver_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra
@@ -110,22 +106,22 @@ WITH execution_outcomes_prep AS (
  			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
  			THEN (safe_json_parse(ra.results_json::TEXT)->'snapshot_and_state'->>'total_venear')::NUMERIC
  			ELSE NULL
- 		  END AS total_venear_amount 
+ 		    END AS total_venear_amount 
  	    , CASE 
  			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
  			THEN (safe_json_parse(ra.results_json::TEXT)->>'voting_duration_ns')::NUMERIC
  			ELSE NULL
- 		   END AS voting_duration_ns 
+ 		    END AS voting_duration_ns 
  		, CASE 
  			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
  			THEN (safe_json_parse(ra.results_json::TEXT)->>'voting_start_time_ns')::NUMERIC
  			ELSE NULL
- 		   END AS voting_start_time_ns 
+ 		    END AS voting_start_time_ns 
  		, CASE 
  			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
  			THEN (safe_json_parse(ra.results_json::TEXT)->>'creation_time_ns')::NUMERIC
  			ELSE NULL
- 		   END AS creation_time_ns 
+ 		    END AS creation_time_ns 
  	FROM receipt_actions_prep AS ra
  	INNER JOIN approve_proposal AS ap 
  		ON ra.receipt_id = ap.snapshot_receipt_id
@@ -143,7 +139,7 @@ WITH execution_outcomes_prep AS (
  		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
  		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'proposal_id')::NUMERIC
  		    ELSE NULL 
- 		  END AS proposal_id
+ 		    END AS proposal_id
  		, ra.signer_account_id AS proposal_rejecter_id
  		, ra.action_logs 
  	FROM receipt_actions_prep AS ra

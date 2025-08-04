@@ -51,7 +51,7 @@ impl Indexer {
         let start_block_height = self.determine_start_block(cli_start_block).await?;
         info!("App version: {}", self.settings.app_version);
         info!("Starting from block: {}", start_block_height);
-        info!("veNEAR contracts: {:?}", self.settings.get_venear_contracts());
+        info!("HOS contracts: {:?}", self.settings.get_hos_contracts());
 
         // Set up signal handling
         let ctrl_c_running = self.is_running.clone();
@@ -65,21 +65,11 @@ impl Indexer {
         let chain_id = ChainId::try_from(self.settings.api_chain_id.clone())
             .map_err(|e| anyhow::anyhow!("Invalid chain ID: {}", e))?;
 
-        // Use finality from config (defaulting to Final if not recognized)
-        let finality = if self.settings.api_finality == "final" {
-            Finality::Final
-        } else {
-            Finality::Final // default to final for any other value
-        };
-
         // Log configuration being used
         info!("API key length: {}", self.settings.api_auth_token.as_ref().map(|k| k.len()).unwrap_or(0));
         info!("Using chain ID: {}", self.settings.api_chain_id);
-        info!("Using finality: {}", self.settings.api_finality);
-        info!("Using batch size: {}", self.settings.batch_size);
         info!("Using poll interval: {}s", self.settings.poll_interval);
         info!("Using retry delay: {}s", self.settings.retry_delay);
-        info!("Using max retries: {}", self.settings.max_retries);
         info!("Using num_threads: {}", self.settings.num_threads);
         info!("Using environment: {}", self.settings.environment);
         info!("Using dd_environment: {}", self.settings.dd_environment);
@@ -93,7 +83,7 @@ impl Indexer {
             retry_duration: Some(std::time::Duration::from_secs(self.settings.retry_delay)),
             disable_archive_sync: false,
             auth_bearer_token: self.settings.api_auth_token.clone(),
-            finality,
+            finality: Finality::Final,
             enable_r2_archive_sync: false,
             user_agent: None,
         };
