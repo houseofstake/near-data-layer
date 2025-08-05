@@ -15,7 +15,7 @@ db_max_connections = 10
 start_block = 124910608 # TODO: SET TO ACTUAL MAINNET CONTRACT DEPLOYMENT BLOCK (plus some padding)
 poll_interval = 1
 retry_delay = 5
-num_threads = 64
+num_threads = 32
 
 # Other
 log_level = "info"
