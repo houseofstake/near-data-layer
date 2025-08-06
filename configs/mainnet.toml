@@ -13,7 +13,7 @@ db_max_connections = 10
 
 # Indexer Configuration
 start_block = 124910608 # TODO: SET TO ACTUAL MAINNET CONTRACT DEPLOYMENT BLOCK (plus some padding)
-poll_interval = 10
+poll_interval = 30
 retry_delay = 1
 num_threads = 16
 
