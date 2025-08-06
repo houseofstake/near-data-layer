@@ -27,5 +27,5 @@ datadog_enabled = true
 
 # Contract Configuration
 hos_contracts = [
-    'voteagora.near' # TODO: Confirm this is the correct suffix before landing
+    'voteagora.near'
 ] 
