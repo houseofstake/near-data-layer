@@ -15,7 +15,7 @@ db_max_connections = 10
 start_block = 207797689 # first proposal block 199579301, jan 1st block 183500000
 poll_interval = 1
 retry_delay = 5
-num_threads = 64
+num_threads = 32
 
 # Other
 log_level = "info"
