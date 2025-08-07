@@ -41,11 +41,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut settings = Settings::new().expect("Failed to load configuration. Please ensure config.toml exists and is valid.");
 
     // Initialize logging with config log level
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&format!("{},near_indexer=debug", settings.log_level)));
+    // let env_filter = EnvFilter::try_from_default_env()
+    //     .unwrap_or_else(|_| EnvFilter::new(&format!("{},near_indexer=debug", settings.log_level)));
 
     fmt()
-        .with_env_filter(env_filter)
+        .with_env_filter("neardata-fetcher=info")
         .with_target(false)
         .with_thread_ids(true)
         .with_thread_names(true)
