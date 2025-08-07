@@ -15,7 +15,7 @@ db_max_connections = 32
 start_block = 158487000 # first block with voteagora contract action 158,487,483 https://nearblocks.io/txns/EDxgoJDkZjEYdjSMMgvkq1x1QfQ7EibnAxbF9WXdP1ri?tab=execution#4MJfN2K3S1saXimYKsYzjWKERZ7pgZArm1yrySV9Cu1Q
 poll_interval = 30
 retry_delay = 1
-num_threads = 32
+num_threads = 4
 
 # Other
 log_level = "info"

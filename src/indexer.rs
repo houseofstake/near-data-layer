@@ -89,7 +89,7 @@ impl Indexer {
         };
 
         // Create channel for receiving blocks
-        let (sender, receiver) = mpsc::channel(100);
+        let (sender, receiver) = mpsc::channel(1000);
 
         // Start the fetcher in a separate task
         let fetcher_task = tokio::spawn(fetcher::start_fetcher(
