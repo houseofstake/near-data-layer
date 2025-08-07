@@ -91,6 +91,24 @@ impl Processor {
         Ok(())
     }
 
+    pub async fn process_block_batch(&self, blocks: &[BlockWithTxHashes]) -> Result<()> {
+        if blocks.is_empty() {
+            return Ok(());
+        }
+
+        // Store all blocks in one batch operation
+        let block_refs: Vec<&BlockWithTxHashes> = blocks.iter().collect();
+        self.database.store_blocks_batch(&block_refs).await?;
+
+        // Process receipt actions/outcomes for each block
+        // Most blocks will have no HOS activity, so this is usually fast
+        for block in blocks {
+            self.process_receipt_actions_execution_outcomes(block).await?;
+        }
+
+        Ok(())
+    }
+
     pub async fn process_receipt_actions_execution_outcomes(&self, block: &BlockWithTxHashes) -> Result<()> {
         let mut actions = Vec::new();
         let mut execution_outcomes = Vec::new();

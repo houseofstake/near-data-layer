@@ -143,6 +143,14 @@ impl Indexer {
     }
 
     async fn process_blocks(&self, mut receiver: mpsc::Receiver<BlockWithTxHashes>) -> Result<()> {
+        let batch_size = if self.settings.enable_batch_mode {
+            info!("Batch mode enabled: processing {} blocks per batch", self.settings.batch_size);
+            self.settings.batch_size
+        } else {
+            info!("Batch mode disabled: processing blocks individually");
+            1 // Process one block at a time when batch mode is disabled
+        };
+        let mut block_batch = Vec::with_capacity(batch_size);
         let mut prev_block_hash = None;
         let mut processed_blocks = 0;
         let mut batch_start_block: Option<u64> = None;
@@ -154,14 +162,9 @@ impl Indexer {
             }
 
             let block_height = block.block.header.height;
-            processed_blocks += 1;
-            if batch_start_block.is_none() {
-                batch_start_block = Some(block_height);
-            }
-            last_block_height = Some(block_height);
+            let block_hash = block.block.header.hash.clone();
 
             // Validate block chain
-            let block_hash = block.block.header.hash.clone();
             if let Some(prev_hash) = &prev_block_hash {
                 if prev_hash != &block.block.header.prev_hash.to_string() {
                     error!(
@@ -173,27 +176,52 @@ impl Indexer {
             }
             prev_block_hash = Some(block_hash.to_string());
 
-            // Process the block
-            if let Err(e) = self.processor.process_block(&block).await {
-                error!("Failed to process block {}: {}", block_height, e);
-                continue;
+            // Add block to batch
+            block_batch.push(block);
+            processed_blocks += 1;
+            if batch_start_block.is_none() {
+                batch_start_block = Some(block_height);
             }
+            last_block_height = Some(block_height);
 
-            // Update cursor
-            if let Err(e) = self
-                .processor
-                .update_cursor(&self.settings.app_version, block_height, &block_hash.to_string())
-                .await
-            {
-                error!("Failed to update cursor for block {}: {}", block_height, e);
+            // Process batch when full or shutting down
+            if block_batch.len() >= batch_size || !self.is_running.load(Ordering::SeqCst) {
+                if let Err(e) = self.process_block_batch(&block_batch).await {
+                    error!("Failed to process block batch: {}", e);
+                    // Fallback to individual processing on batch failure
+                    for individual_block in &block_batch {
+                        if let Err(e2) = self.processor.process_block(individual_block).await {
+                            error!("Failed to process individual block {}: {}", individual_block.block.header.height, e2);
+                        }
+                        if let Err(e2) = self.processor.update_cursor(
+                            &self.settings.app_version,
+                            individual_block.block.header.height,
+                            &individual_block.block.header.hash.to_string()
+                        ).await {
+                            error!("Failed to update cursor for block {}: {}", individual_block.block.header.height, e2);
+                        }
+                    }
+                } else {
+                    // Update cursor to highest block in successful batch
+                    if let Some(last_block) = block_batch.last() {
+                        if let Err(e) = self.processor.update_cursor(
+                            &self.settings.app_version,
+                            last_block.block.header.height,
+                            &last_block.block.header.hash.to_string()
+                        ).await {
+                            error!("Failed to update cursor for batch: {}", e);
+                        }
+                    }
+                }
+
+                block_batch.clear();
             }
 
             // Send DataDog metrics every 10 blocks
             if processed_blocks % 10 == 0 {
                 let block_timestamp = {
-                    let secs = (block.block.header.timestamp_nanosec / 1_000_000_000) as i64;
-                    let nsecs = (block.block.header.timestamp_nanosec % 1_000_000_000) as u32;
-                    chrono::DateTime::<chrono::Utc>::from_timestamp(secs, nsecs)
+                    let secs = (block_height as u64 * 1_000_000_000) as i64; // Approximate timestamp
+                    chrono::DateTime::<chrono::Utc>::from_timestamp(secs / 1_000_000_000, 0)
                         .unwrap_or_else(|| chrono::Utc::now())
                 };
                 
@@ -205,18 +233,44 @@ impl Indexer {
             // Log every 1000 blocks
             if processed_blocks % 1000 == 0 {
                 if let (Some(start), Some(end)) = (batch_start_block, last_block_height) {
-                    info!("Processed and stored blocks {}-{}", start, end);
+                    let mode = if self.settings.enable_batch_mode { "batch mode" } else { "individual mode" };
+                    info!("Processed and stored blocks {}-{} ({})", start, end, mode);
                 }
                 batch_start_block = None;
             }
+
+            if !self.is_running.load(Ordering::SeqCst) {
+                break;
+            }
         }
+
+        // Process any remaining blocks in the batch
+        if !block_batch.is_empty() {
+            if let Err(e) = self.process_block_batch(&block_batch).await {
+                error!("Failed to process final block batch: {}", e);
+            } else if let Some(last_block) = block_batch.last() {
+                if let Err(e) = self.processor.update_cursor(
+                    &self.settings.app_version,
+                    last_block.block.header.height,
+                    &last_block.block.header.hash.to_string()
+                ).await {
+                    error!("Failed to update cursor for final batch: {}", e);
+                }
+            }
+        }
+
         // Log any remaining blocks at the end
         if let (Some(start), Some(end)) = (batch_start_block, last_block_height) {
             if processed_blocks % 1000 != 0 {
-                info!("Processed and stored blocks {}-{}", start, end);
+                let mode = if self.settings.enable_batch_mode { "batch mode" } else { "individual mode" };
+                info!("Processed and stored blocks {}-{} ({})", start, end, mode);
             }
         }
         info!("Block processing stopped");
         Ok(())
+    }
+
+    async fn process_block_batch(&self, blocks: &[BlockWithTxHashes]) -> Result<()> {
+        self.processor.process_block_batch(blocks).await
     }
 } 

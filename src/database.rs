@@ -2,7 +2,7 @@ use crate::config::Settings;
 use anyhow::Result;
 use chrono::Utc;
 use fastnear_primitives::block_with_tx_hash::BlockWithTxHashes;
-use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+use sqlx::{postgres::PgPoolOptions, PgPool, Row, QueryBuilder};
 use tracing::info;
 use serde_json;
 
@@ -246,6 +246,56 @@ impl Database {
         .map_err(|e| anyhow::anyhow!(
             "Failed to store block {} (height={}): {}. Database pool timeout may indicate: 1) Too many concurrent operations, 2) Long-running queries blocking pool, 3) Need to increase db_max_connections (currently configured).", 
             header.hash, header.height, e
+        ))?;
+        Ok(())
+    }
+
+    pub async fn store_blocks_batch(&self, blocks: &[&BlockWithTxHashes]) -> Result<()> {
+        if blocks.is_empty() {
+            return Ok(());
+        }
+
+        let mut query_builder = QueryBuilder::new(
+            "INSERT INTO blocks (height, hash, prev_hash, author, timestamp, gas_price, total_supply) "
+        );
+
+        query_builder.push_values(blocks, |mut b, block| {
+            let header = &block.block.header;
+            let secs = (header.timestamp_nanosec / 1_000_000_000) as i64;
+            let nsecs = (header.timestamp_nanosec % 1_000_000_000) as u32;
+            let timestamp = chrono::DateTime::<Utc>::from_timestamp(secs, nsecs)
+                .unwrap_or_else(|| Utc::now());
+
+            // Store string values to avoid lifetime issues
+            let hash_str = header.hash.to_string();
+            let prev_hash_str = header.prev_hash.to_string();
+            let author_str = block.block.author.to_string();
+            let gas_price_str = header.gas_price.to_string();
+            let total_supply_str = header.total_supply.to_string();
+
+            b.push_bind(header.height as i64)
+                .push_bind(hash_str)
+                .push_bind(prev_hash_str)
+                .push_bind(author_str)
+                .push_bind(timestamp)
+                .push_bind(gas_price_str)
+                .push_bind(total_supply_str);
+        });
+
+        query_builder.push(" ON CONFLICT (height) DO UPDATE SET ");
+        query_builder.push(
+            "hash = EXCLUDED.hash, 
+            prev_hash = EXCLUDED.prev_hash, 
+            author = EXCLUDED.author, 
+            timestamp = EXCLUDED.timestamp, 
+            gas_price = EXCLUDED.gas_price, 
+            total_supply = EXCLUDED.total_supply"
+        );
+
+        let query = query_builder.build();
+        query.execute(&self.pool).await.map_err(|e| anyhow::anyhow!(
+            "Failed to store block batch ({} blocks): {}. Database pool timeout may indicate: 1) Too many concurrent operations, 2) Long-running queries blocking pool, 3) Need to increase db_max_connections (currently configured).", 
+            blocks.len(), e
         ))?;
         Ok(())
     }

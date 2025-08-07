@@ -40,6 +40,8 @@ pub struct Settings {
     pub poll_interval: u64,           // [CONFIG] - Polling interval in milliseconds
     pub retry_delay: u64,             // [CONFIG] - Retry delay for failed operations
     pub num_threads: u64,             // [CONFIG] - Number of processing threads
+    pub enable_batch_mode: bool,      // [CONFIG] - Enable batch processing for blocks
+    pub batch_size: usize,            // [CONFIG] - Number of blocks to process in each batch
     
     // Contract Configuration
     pub hos_contracts: Vec<String>,   // [CONFIG] - List of HOS contract addresses to monitor

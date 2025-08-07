@@ -17,6 +17,10 @@ poll_interval = 1
 retry_delay = 5
 num_threads = 32
 
+# Batch Processing Configuration
+enable_batch_mode = true  # Enable batch processing for better performance during backfill
+batch_size = 10          # Number of blocks to process in each batch
+
 # Other
 log_level = "info"
 app_version = "v1.0.1"
