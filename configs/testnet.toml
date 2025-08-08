@@ -19,7 +19,7 @@ num_threads = 32
 
 # Other
 log_level = "info"
-app_version = "v1.0.1"
+app_version = "v1.0.0"
 
 # DataDog Configuration - set via environment variables  
 # dd_api_key, environment, dd_environment set via INDEXER_* env vars
