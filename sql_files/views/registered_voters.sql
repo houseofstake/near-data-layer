@@ -36,15 +36,6 @@ execution_outcomes_prep AS (
 	WHERE
 		ra.action_kind = 'FunctionCall'
 )
-, registered_voters_prep AS (
-  	SELECT
-    	decode(ra.args_base64, 'base64') AS args
-    	, ra.*
-  	FROM receipt_actions_prep AS ra
-  	WHERE
-    	ra.method_name = 'deploy_lockup'
-)
-
 /* Sourcing Voting Power per Registered Voter */
 , initial_voting_power_from_locks_unlocks AS (
   	SELECT
@@ -68,6 +59,24 @@ execution_outcomes_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'storage_deposit'
+		AND (CASE 
+ 		       WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		       THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		       ELSE NULL 
+ 		       END) IS NOT NULL
+)
+/* Grabbing list of registered voters, excluding dupes due to account already being registered */
+, registered_voters_prep AS (
+  	SELECT
+    	decode(ra.args_base64, 'base64') AS args
+    	, ra.*
+  	FROM receipt_actions_prep AS ra
+	--Any time a user registers to vote, there should always be a non-null storage deposit; aka, initial voting power amount
+	--This inner join is done to exclude scenarios where a vote registration action (aka deploy_lockup for a given user) is duped bc the user's account was already registered and the subsequent storage_deposit event tracks a null initial_voting_power amount
+	INNER JOIN initial_voting_power_from_locks_unlocks AS ivp 
+		ON ra.receipt_id = ivp.receipt_id 
+  	WHERE
+    	ra.method_name = 'deploy_lockup'
 )
 , current_voting_power_from_locks_unlocks AS (
 	SELECT
