@@ -140,6 +140,7 @@ impl Database {
 
         // Execute view creation files in the correct (reverse) order
         let view_files_order = vec![
+            "venear_votable_supply.sql",
             "delegation_events.sql",
             "proposal_voting_history.sql",
             "proposals.sql",
