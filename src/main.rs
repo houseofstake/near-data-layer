@@ -43,6 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_env_filter("neardata-fetcher=debug")
         .with_thread_ids(true)
         .with_thread_names(true)
+        .with_target(false)
         .init();
 
     let cli = Cli::parse();
