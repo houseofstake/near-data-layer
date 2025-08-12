@@ -41,6 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing_subscriber::fmt()
         .with_env_filter("neardata-fetcher=debug")
+        .with_thread_ids(true)
+        .with_thread_names(true)
         .init();
 
     let cli = Cli::parse();
