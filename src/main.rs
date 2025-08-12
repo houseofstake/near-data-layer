@@ -7,7 +7,6 @@ mod processor;
 use clap::{Parser, Subcommand};
 use config::Settings;
 use indexer::Indexer;
-use tracing_subscriber::{fmt, EnvFilter};
 
 #[derive(Parser)]
 #[command(name = "near-indexer")]
@@ -38,17 +37,13 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load configuration first to get log level
-    let mut settings = Settings::new().expect("Failed to load configuration. Please ensure config.toml exists and is valid.");
+    let mut settings = Settings::new().expect("Failed to load configuration. Please ensure config/testnet.toml or mainnet.toml exists for the configured chain ID.");
 
-    // Initialize logging with config log level
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&format!("{},near_indexer=debug", settings.log_level)));
-
-    fmt()
-        .with_env_filter(env_filter)
-        .with_target(false)
+    tracing_subscriber::fmt()
+        .with_env_filter("neardata-fetcher=debug")
         .with_thread_ids(true)
         .with_thread_names(true)
+        .with_target(false)
         .init();
 
     let cli = Cli::parse();
