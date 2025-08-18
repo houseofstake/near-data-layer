@@ -50,10 +50,7 @@ num_threads = 64
 # Important: Change this to trigger a backfill
 app_version = "1.0.0"
 
-hos_contracts = [
-    "r-1745564650.testnet",
-    "r-1746683627.testnet"
-]
+hos_contract = "r-1745564650.testnet"
 ```
 
 The indexer only processes transactions that interact with contracts listed in `hos_contracts`, filtering out all other blockchain activity.

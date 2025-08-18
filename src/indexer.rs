@@ -51,7 +51,7 @@ impl Indexer {
         let start_block_height = self.determine_start_block(cli_start_block).await?;
         info!("App version: {}", self.settings.app_version);
         info!("Starting from block: {}", start_block_height);
-        info!("HOS contracts: {:?}", self.settings.get_hos_contracts());
+        info!("HOS contract: {}", self.settings.hos_contract);
 
         // Set up signal handling
         let ctrl_c_running = self.is_running.clone();
