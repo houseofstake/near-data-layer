@@ -26,6 +26,4 @@ app_version = "v1.0.0"
 datadog_enabled = true
 
 # Contract Configuration
-hos_contracts = [
-    'hos-07.testnet'
-] 
+hos_contract = 'hos-07.testnet' 

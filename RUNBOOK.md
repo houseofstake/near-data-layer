@@ -14,18 +14,12 @@ Contracts are defined in the appropriate config file as a simple list:
 
 **configs/testnet.toml:**
 ```toml
-hos_contracts = [
-    'hos-07.testnet',
-    'another-contract.testnet'
-]
+hos_contract = 'hos-07.testnet'
 ```
 
 **configs/mainnet.toml:**
 ```toml
-hos_contracts = [
-    'contract1.near',
-    'contract2.near'
-]
+hos_contract = 'contract1.near'
 ```
 
 ### Adding New Contracts
@@ -34,11 +28,7 @@ hos_contracts = [
    
    **For testnet (`configs/testnet.toml`):**
    ```toml
-   hos_contracts = [
-       'hos-07.testnet',
-       'new-contract.testnet',  # <- Add new contract here
-       'another-new.testnet'
-   ]
+   hos_contract = 'new-contract.testnet'  # <- Replace with new contract
    ```
 
 2. **Deploy the changes**:
@@ -55,8 +45,8 @@ hos_contracts = [
 ### Network Selection
 
 The indexer automatically selects the appropriate config file based on the `INDEXER_API_CHAIN_ID` environment variable:
-- `testnet` → loads `configs/testnet.toml` with its `hos_contracts` list
-- `mainnet` → loads `configs/mainnet.toml` with its `hos_contracts` list
+- `testnet` → loads `configs/testnet.toml` with its `hos_contract` value
+- `mainnet` → loads `configs/mainnet.toml` with its `hos_contract` value
 
 ### Important Notes
 
