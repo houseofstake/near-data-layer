@@ -35,6 +35,10 @@ execution_outcomes_prep AS (
 		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
 	WHERE
 		ra.action_kind = 'FunctionCall'
+		AND ra.receiver_id IN (     --House of Stake contracts
+ 			'v.{HOS_CONTRACT}'      --veNEAR contract 
+ 			, 'vote.{HOS_CONTRACT}' --Voting contract 
+ 			)
 )
 /* Sourcing Voting Power per Registered Voter */
 , initial_voting_power_from_locks_unlocks AS (

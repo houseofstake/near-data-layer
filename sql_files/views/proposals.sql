@@ -31,6 +31,10 @@ WITH execution_outcomes_prep AS (
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
+		AND ra.receiver_id IN (     --House of Stake contracts
+ 			'v.{HOS_CONTRACT}'      --veNEAR contract 
+ 			, 'vote.{HOS_CONTRACT}' --Voting contract 
+ 			)
 )
 , create_proposal AS ( 
  	SELECT
