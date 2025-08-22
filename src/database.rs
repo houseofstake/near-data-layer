@@ -83,8 +83,6 @@ impl Database {
         })
     }
 
-
-
     pub async fn initialize_tables(&self, settings: &Settings) -> Result<()> {
         // Read schema from schema.sql file
         let schema_content = std::fs::read_to_string("sql_files/schema.sql")
