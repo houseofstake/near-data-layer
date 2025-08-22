@@ -1,4 +1,5 @@
 use crate::config::Settings;
+use crate::metrics::DataDogMetrics;
 use anyhow::Result;
 use chrono::Utc;
 use fastnear_primitives::block_with_tx_hash::BlockWithTxHashes;
@@ -50,10 +51,11 @@ pub struct ExecutionOutcomeRow {
 
 pub struct Database {
     pool: PgPool,
+    datadog_metrics: Option<DataDogMetrics>,
 }
 
 impl Database {
-    pub async fn new(settings: Settings) -> Result<Self> {
+    pub async fn new(settings: Settings, datadog_metrics: Option<DataDogMetrics>) -> Result<Self> {
         info!(
             "Initializing database connection pool: max_connections={}, acquire_timeout=30s, host={}:{}",
             settings.db_max_connections, settings.db_host, settings.db_port
@@ -75,8 +77,13 @@ impl Database {
             settings.db_database,
             settings.db_max_connections
         );
-        Ok(Self { pool })
+        Ok(Self { 
+            pool,
+            datadog_metrics,
+        })
     }
+
+
 
     pub async fn initialize_tables(&self, settings: &Settings) -> Result<()> {
         // Read schema from schema.sql file
@@ -226,13 +233,16 @@ impl Database {
     }
 
     pub async fn store_block(&self, block: &BlockWithTxHashes) -> Result<()> {
+        let start_time = std::time::Instant::now();
+        
         let header = &block.block.header;
         // Convert timestamp from nanoseconds to DateTime<Utc>
         let secs = (header.timestamp_nanosec / 1_000_000_000) as i64;
         let nsecs = (header.timestamp_nanosec % 1_000_000_000) as u32;
         let timestamp = chrono::DateTime::<Utc>::from_timestamp(secs, nsecs)
             .unwrap_or_else(|| Utc::now());
-        sqlx::query(
+        
+        let result = sqlx::query(
             "INSERT INTO blocks (height, hash, prev_hash, author, timestamp, gas_price, total_supply) \
              VALUES ($1, $2, $3, $4, $5, $6, $7) \
              ON CONFLICT (height) DO UPDATE SET \
@@ -251,8 +261,25 @@ impl Database {
         .bind(&header.gas_price.to_string())
         .bind(&header.total_supply.to_string())
         .execute(&self.pool)
-        .await
-        .map_err(|e| anyhow::anyhow!(
+        .await;
+
+        // Send database performance metrics if available
+        if let Some(ref metrics) = self.datadog_metrics {
+            let execution_time_ms = start_time.elapsed().as_millis() as f64;
+            let pool_size = self.pool.size() as u32;
+            let active_connections = self.pool.size() - self.pool.num_idle() as u32;
+            let idle_connections = self.pool.num_idle() as u32;
+            
+            // Send metrics synchronously to avoid lifetime issues
+            let _ = metrics.send_database_metrics(
+                execution_time_ms,
+                pool_size,
+                active_connections,
+                idle_connections,
+            ).await;
+        }
+
+        result.map_err(|e| anyhow::anyhow!(
             "Failed to store block {} (height={}): {}. Database pool timeout may indicate: 1) Too many concurrent operations, 2) Long-running queries blocking pool, 3) Need to increase db_max_connections (currently configured).", 
             header.hash, header.height, e
         ))?;
@@ -263,6 +290,8 @@ impl Database {
         &self,
         actions: Vec<ReceiptActionRow>,
     ) -> Result<()> {
+        let start_time = std::time::Instant::now();
+        
         for action in actions {
             sqlx::query(
                 "INSERT INTO receipt_actions (
@@ -313,6 +342,23 @@ impl Database {
             .execute(&self.pool)
             .await?;
         }
+        
+        // Send database performance metrics if available
+        if let Some(ref metrics) = self.datadog_metrics {
+            let execution_time_ms = start_time.elapsed().as_millis() as f64;
+            let pool_size = self.pool.size() as u32;
+            let active_connections = self.pool.size() - self.pool.num_idle() as u32;
+            let idle_connections = self.pool.num_idle() as u32;
+            
+            // Send performance metrics
+            let _ = metrics.send_database_metrics(
+                execution_time_ms,
+                pool_size,
+                active_connections,
+                idle_connections,
+            ).await;
+        }
+        
         Ok(())
     }
 
@@ -320,6 +366,8 @@ impl Database {
         &self,
         outcomes: Vec<ExecutionOutcomeRow>,
     ) -> Result<()> {
+        let start_time = std::time::Instant::now();
+        
         for outcome in outcomes {
             sqlx::query(
                 "INSERT INTO execution_outcomes (
@@ -361,6 +409,23 @@ impl Database {
             .execute(&self.pool)
             .await?;
         }
+        
+        // Send database performance metrics if available
+        if let Some(ref metrics) = self.datadog_metrics {
+            let execution_time_ms = start_time.elapsed().as_millis() as f64;
+            let pool_size = self.pool.size() as u32;
+            let active_connections = self.pool.size() - self.pool.num_idle() as u32;
+            let idle_connections = self.pool.num_idle() as u32;
+            
+            // Send performance metrics
+            let _ = metrics.send_database_metrics(
+                execution_time_ms,
+                pool_size,
+                active_connections,
+                idle_connections,
+            ).await;
+        }
+        
         Ok(())
     }
 

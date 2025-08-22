@@ -85,6 +85,8 @@ impl Processor {
         self.database.update_cursor(id, block_num, block_hash).await
     }
 
+
+
     pub async fn process_block(&self, block: &BlockWithTxHashes) -> Result<()> {
         self.database.store_block(block).await?;
         self.process_receipt_actions_execution_outcomes(block).await?;

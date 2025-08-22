@@ -21,14 +21,16 @@ pub struct Indexer {
 
 impl Indexer {
     pub async fn new(settings: Settings) -> Result<Self> {
-        let database = Database::new(settings.clone()).await?;
-        let processor = Processor::new(database, settings.clone());
         let is_running = Arc::new(AtomicBool::new(true));
         let datadog_metrics = DataDogMetrics::new(
             settings.dd_api_key.clone(),
             settings.datadog_enabled,
             settings.dd_environment.clone(),
         );
+
+        // Create database with DataDog metrics passed directly
+        let database = Database::new(settings.clone(), Some(datadog_metrics.clone())).await?;
+        let processor = Processor::new(database, settings.clone());
 
         Ok(Self {
             settings,
@@ -147,6 +149,11 @@ impl Indexer {
         let mut processed_blocks = 0;
         let mut batch_start_block: Option<u64> = None;
         let mut last_block_height: Option<u64> = None;
+        
+        // Track indexing speed metrics with rolling average
+        let mut last_block_time = std::time::Instant::now();
+        let mut recent_block_times: Vec<std::time::Duration> = Vec::new();
+        const SPEED_WINDOW_SIZE: usize = 10; // Keep last 10 block processing times
 
         while let Some(block) = receiver.recv().await {
             if !self.is_running.load(Ordering::SeqCst) {
@@ -159,6 +166,17 @@ impl Indexer {
                 batch_start_block = Some(block_height);
             }
             last_block_height = Some(block_height);
+
+            // Calculate time since last block
+            let current_time = std::time::Instant::now();
+            let time_since_last_block = current_time.duration_since(last_block_time);
+            last_block_time = current_time;
+
+            // Add to rolling window (keep only last N block times)
+            recent_block_times.push(time_since_last_block);
+            if recent_block_times.len() > SPEED_WINDOW_SIZE {
+                recent_block_times.remove(0);
+            }
 
             // Validate block chain
             let block_hash = block.block.header.hash.clone();
@@ -200,6 +218,22 @@ impl Indexer {
                 self.datadog_metrics
                     .send_block_metrics(block_height, block_timestamp)
                     .await;
+                
+                // Calculate and send indexing speed metrics
+                if recent_block_times.len() >= 2 {
+                    let total_time: f64 = recent_block_times.iter()
+                        .map(|d| d.as_secs_f64())
+                        .sum();
+                    let blocks_per_second = if total_time > 0.0 {
+                        recent_block_times.len() as f64 / total_time
+                    } else {
+                        0.0
+                    };
+                    
+                    self.datadog_metrics
+                        .send_indexing_speed_metrics(blocks_per_second)
+                        .await;
+                }
             }
 
             // Log every 1000 blocks
