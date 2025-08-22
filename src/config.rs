@@ -42,7 +42,7 @@ pub struct Settings {
     pub num_threads: u64,             // [CONFIG] - Number of processing threads
     
     // Contract Configuration
-    pub hos_contracts: Vec<String>,   // [CONFIG] - List of HOS contract addresses to monitor
+    pub hos_contract: String,   // [CONFIG] - HOS contract address to monitor
     
     // Logging Configuration
     pub log_level: String,            // [CONFIG] - Log level (debug, info, warn, error)
@@ -96,11 +96,7 @@ impl Settings {
         )
     }
 
-    pub fn get_hos_contracts(&self) -> &Vec<String> {
-        &self.hos_contracts
-    }
-
     pub fn is_hos_contract(&self, account_id: &str) -> bool {
-        self.hos_contracts.iter().any(|id| account_id.contains(id))
+        account_id.contains(&self.hos_contract)
     }
 }

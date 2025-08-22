@@ -86,6 +86,9 @@ impl Database {
         // Replace schema name placeholder with actual schema name from config
         let schema_content = schema_content.replace("{SCHEMA_NAME}", &settings.db_schema);
         
+        // Replace HOS contract placeholder with actual contract address from config
+        let schema_content = schema_content.replace("{HOS_CONTRACT}", &settings.hos_contract);
+        
         // Split the schema into individual statements
         let statements: Vec<&str> = schema_content
             .split(';')
@@ -117,6 +120,9 @@ impl Database {
                 Ok(content) => {
                     // Replace schema name placeholder with actual schema name
                     let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
+                    
+                    // Replace HOS contract placeholder with actual contract address
+                    let content = content.replace("{HOS_CONTRACT}", &settings.hos_contract);
                     
                     // For helper functions, execute the entire content as a single statement
                     // since they may contain dollar-quoted strings and semicolons within function bodies
@@ -155,6 +161,9 @@ impl Database {
                 Ok(content) => {
                     // Replace schema name placeholder with actual schema name
                     let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
+                    
+                    // Replace HOS contract placeholder with actual contract address
+                    let content = content.replace("{HOS_CONTRACT}", &settings.hos_contract);
                     
                     // For view files, execute the entire content as a single statement
                     // since they may contain complex CTEs, subqueries, and semicolons within the view definition

@@ -47,9 +47,7 @@ app_version = "v2.0.0"  # <- Major version bump for mainnet
 
 
 # Contract Configuration
-hos_contracts = [
-    "hos-123.near"  # <- ADD ACTUAL MAINNET CONTRACT ADDRESS
-]
+hos_contract = "hos-123.near"  # <- ADD ACTUAL MAINNET CONTRACT ADDRESS
 ```
 
 ### Step 3: Merge and Deploy Terraform PR
@@ -66,7 +64,7 @@ Deploy the near-data-layer PR with mainnet configuration changes to production.
 
 **Confirm in VM logs before proceeding to drop tables:**
 - "Using chain ID: mainnet"
-- "HOS contracts: [\"hos-123.near\"]"
+- "HOS contract: hos-123.near"
 - Indexer running without errors
 
 ```bash
@@ -75,7 +73,7 @@ Deploy the near-data-layer PR with mainnet configuration changes to production.
 
 # "App version: v2.0.0" 
 # "Using chain ID: mainnet"
-# "HOS contracts: [\"hos-123.near\"]"
+# "HOS contract: hos-123.near"
 # "No cursor found for app version 'v2.0.0', using config start block: XXXXXX"
 # "Starting from block: XXXXXX"
 ```
