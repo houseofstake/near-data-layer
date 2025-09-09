@@ -192,16 +192,16 @@ receipt_actions_prep AS (
  		, gc.growth_rate_numerator_ns
  		, gc.growth_rate_denominator_ns
  		, (EXTRACT(EPOCH FROM NOW()) * 1e9)::NUMERIC 				AS now_ns 
- 		, vplu.lockup_update_at_ns 									AS latest_lockup_update_at_ns --we ALSO need the timestamp FOR users who have NOT had ANY locks/unlocks; what IS it?
+ 		, vplu.lockup_update_at_ns 									AS latest_lockup_update_at_ns 
 
  		--Voting Powers
 		, COALESCE(vplu.voting_power_from_locks_unlocks, 0)     	AS voting_power_from_locks_unlocks 
- 		, COALESCE(vpvr.voting_power_from_vote_registration, 0) 	AS voting_power_from_vote_registration --aka initial voting power, AS a registered voter! 
+ 		, COALESCE(vpvr.voting_power_from_vote_registration, 0) 	AS voting_power_from_vote_registration --aka initial voting power, as a registered voter
  		, COALESCE(vplu.voting_power_from_locks_unlocks, 0) 
  			+ COALESCE(vpvr.voting_power_from_vote_registration, 0) AS principal_balance 
 
 	FROM registered_voters_prep AS ra 					    --Sourced from the deploy_lockup event
-	LEFT JOIN venear_contract_growth_config AS gc           --Sourced from method_name = 'new'; function call sets up the contract state WHEN it IS FIRST deployed
+	LEFT JOIN venear_contract_growth_config AS gc           --Sourced from method_name = 'new'; function call sets up the contract state when it is first deployed
         ON ra.receiver_id = gc.hos_contract_address 
 	LEFT JOIN voting_power_from_locks_unlocks AS vplu 	    --Sourced from the voter's most recent on_lockup_update event
 		ON ra.signer_account_id = vplu.registered_voter_id	
@@ -232,7 +232,7 @@ receipt_actions_prep AS (
     		ELSE 
     			( (FLOOR(principal_balance/1e21)*1e21) )
     	  	  * ( growth_rate_numerator_ns / growth_rate_denominator_ns ) 
-    	  	  * ( (FLOOR(now_ns/1e9)*1e9) - (FLOOR(registered_at_ns/1e9)*1e9) ) 
+    	  	  * ( (FLOOR(now_ns/1e9)*1e9) - (FLOOR(registered_at_ns/1e9)*1e9) ) --If a user has not had any locks or unlocks, we use the timestamp of when they registered to vote
     		END AS extra_venear_on_principal
     		
 	FROM table_joins AS tj 
