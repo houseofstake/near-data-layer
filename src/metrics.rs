@@ -31,6 +31,12 @@ impl DataDogMetrics {
         }
     }
 
+    /// Check if metrics are enabled
+    #[allow(dead_code)]
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
     /// Helper method to validate if metrics should be sent
     fn should_send_metrics(&self) -> Option<&String> {
         if !self.enabled {
