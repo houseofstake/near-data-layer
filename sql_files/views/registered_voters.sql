@@ -276,15 +276,6 @@ SELECT
 	 	     + COALESCE(delegated_extra_venear,0)
 	 	     )
  	  	END AS current_voting_power
- 	, CASE 
-	 	WHEN ra.is_actively_delegating = TRUE THEN 0 
-	 	ELSE (
-	 	       COALESCE(principal_balance, 0) 
-	 	     + COALESCE(extra_venear_on_principal,0) 
-	 	     + COALESCE(delegated_balance, 0) 
-	 	     + COALESCE(delegated_extra_venear,0)
-	 	     ) / 1e24
- 	  	END AS current_voting_power_converted
  	
  	--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)  	
  	, ra.block_height 
