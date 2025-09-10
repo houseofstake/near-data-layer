@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use fastnear_primitives::block_with_tx_hash::BlockWithTxHashes;
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
-use tracing::info;
+use tracing::{info, warn};
 use serde_json;
 
 #[derive(Debug, Clone)]
@@ -289,6 +289,7 @@ impl Database {
         }
 
         // Execute view creation files in the correct (reverse) order
+        info!("Creating database views...");
         let view_files_order = vec![
             "delegation_events.sql",
             "proposal_voting_history.sql",
@@ -299,7 +300,11 @@ impl Database {
             "user_activities.sql"
         ];
 
-        for file_name in view_files_order {
+        let mut successful_views = 0;
+        let mut failed_views = 0;
+
+        for (i, file_name) in view_files_order.iter().enumerate() {
+            info!("Creating view {}/{}: {}", i + 1, view_files_order.len(), file_name);
             let file_path = format!("sql_files/views/{}", file_name);
             match std::fs::read_to_string(&file_path) {
                 Ok(content) => {
@@ -314,22 +319,33 @@ impl Database {
                     let trimmed_content = content.trim();
                     if !trimmed_content.is_empty() {
                         match sqlx::query(trimmed_content).execute(&self.pool).await {
-                            Ok(_) => info!("Executed view from {}", file_name),
+                            Ok(_) => {
+                                info!("View '{}' created successfully", file_name);
+                                successful_views += 1;
+                            }
                             Err(e) => {
-                                info!("Error executing view from {}: {}", file_name, e);
-                                return Err(anyhow::anyhow!("Failed to execute view creation: {}", e));
+                                warn!("Failed to create view '{}': {}. Continuing with initialization...", file_name, e);
+                                failed_views += 1;
+                                // Continue execution instead of returning error
                             }
                         }
+                    } else {
+                        warn!("View file '{}' is empty, skipping", file_name);
                     }
-                    info!("Successfully processed view file: {}", file_name);
                 }
                 Err(e) => {
-                    return Err(anyhow::anyhow!("Failed to read view file {}: {}", file_name, e));
+                    warn!("Failed to read view file '{}': {}. Continuing with initialization...", file_name, e);
+                    failed_views += 1;
+                    // Continue execution instead of returning error
                 }
             }
         }
         
-        info!("Database views initialized from sql_files/views with schema: {}", settings.db_schema);
+        info!("View creation summary: {} successful, {} failed", successful_views, failed_views);
+        if failed_views > 0 {
+            info!("Some views failed to create but initialization will continue");
+        }
+        info!("Database views initialization completed");
         Ok(())
     }
 
