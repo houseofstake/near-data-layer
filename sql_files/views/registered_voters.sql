@@ -4,25 +4,26 @@
  ("Successful" is defined by pulling only receipt_ids flagged as successful from the execution_outcomes table.)
  
  In this view, each row is associated with: 
-   1. A registered voter ID                                                                 (The voter account, eg. lighttea2007.testnet; also the delegator account, if the account has delegated its NEAR balance away) 
+   1. A registered voter ID                                                                 (The voter account, eg. lighttea2007.testnet, also the delegator account, if the account has delegated its NEAR balance away) 
    2. Boolean flag indicating whether registered voter has locked or unlocked any NEAR      (Sourced from the latest on_lockup_update event that is emitted upon a user's latest lock or unlock action)
    3. Boolean flag indicating whether registered voter is currently delegating their NEAR   (Sourced from the fastnear.delegation_events view)
-   4. A delegatee ID                                                                        (The account to which the registered voter has delegated their entire NEAR balance; NULL if the voter has not delegated their balance)
+   4. A delegatee ID                                                                        (The account to which the registered voter has delegated their entire NEAR balance, NULL if the voter has not delegated their balance)
    5. The related House of Stake Contract                                                   (veNEAR contract address, v.voteagora.near)
    6. The registerd voter's current voting power                                            (Calculated via aggregating the voting power from initial vote registration, the user's latest lock or unlock action, any delegated balances, and accrued rewards aka extra venear earned)  
    7. The registered voter's initial voting power, aka voting power from vote registration  (Sourced from the storage_deposit event that is emitted upon a user's vote registration action) 
    8. the registered voter's voting power from locks and unlocks                            (Sourced from the latest on_lockup_update event that is emitted upon a user's latest lock or unlock action)
    9. The registered voter's principal balance                                              (Calculated as the sum of a user's initial voting power and their voting power from locks or unlocks) 
-   10. The extra venear earned on a principal balance 										(The voting power a registered voter earns from it's principal NEAR balance; calculated using an APY growth rate sourced from the contract upon contract definition) 
+   10. The extra venear earned on a principal balance 										(The voting power a registered voter earns from it's principal NEAR balance, calculated using an APY growth rate sourced from the contract upon contract definition) 
    11. The registered voter's voting power from delegations, aka delegated balance          (Equivalent to the principal balance of the associated delegator account) 
    12. The extra venear earned on a delegated balance                                       (Equivalent to the extra venear earned on principal for the associated delegator account) 
-   13. The registered voter's proposal participation rate                                   (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract; always a percentage out of 10)
+   13. The registered voter's proposal participation rate                                   (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract, always a percentage out of 10)
    14. The timestamp at which the voter registration action occurred 
    15. The block-related data for this deploy_lockup action                                 (Block hash or id, block height) 
 */
 
 
-CREATE OR REPLACE VIEW {SCHEMA_NAME}.registered_voters AS
+DROP VIEW IF EXISTS {SCHEMA_NAME}.registered_voters CASCADE;
+CREATE VIEW {SCHEMA_NAME}.registered_voters AS
 ---------------------------
 --BASE DATA SOURCING PREP--
 ---------------------------
@@ -123,7 +124,7 @@ receipt_actions_prep AS (
     	vplu.row_num = 1
 )
 /* Sourcing Registered Voters from Deploy Lockup Event (Excluding dupes due to account already being registered) */
-  --Whenever a user registers to vote, there should always be a non-null storage deposit; aka, initial voting power amount.
+  --Whenever a user registers to vote, there should always be a non-null storage deposit, aka, initial voting power amount.
   --Inner join excludes scenarios where a vote registration action (aka deploy_lockup for a given user) is duped bc the user's account was already registered and the subsequent storage_deposit event tracks a null initial_voting_power amount.
 , registered_voters_prep AS (
   	SELECT
@@ -201,7 +202,7 @@ receipt_actions_prep AS (
  			+ COALESCE(vpvr.voting_power_from_vote_registration, 0) AS principal_balance 
 
 	FROM registered_voters_prep AS ra 					    --Sourced from the deploy_lockup event
-	LEFT JOIN venear_contract_growth_config AS gc           --Sourced from method_name = 'new'; function call sets up the contract state when it is first deployed
+	LEFT JOIN venear_contract_growth_config AS gc           --Sourced from method_name = 'new', function call sets up the contract state when it is first deployed
         ON ra.receiver_id = gc.hos_contract_address 
 	LEFT JOIN voting_power_from_locks_unlocks AS vplu 	    --Sourced from the voter's most recent on_lockup_update event
 		ON ra.signer_account_id = vplu.registered_voter_id	

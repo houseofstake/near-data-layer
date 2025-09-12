@@ -1,6 +1,6 @@
 /*
- This is a dimensional table that returns all historical delegate/undelegate & stake/unstake events for a given user account; both successful and failed events are included. 
- Primary key is the receipt_id (base58 encoded) associated with any given event per account_id.
+ This is a dimensional table that returns all historical delegate/undelegate & stake/unstake events for a given user account, both successful and failed events are included 
+ Primary key is the receipt_id (base58 encoded) associated with any given event per account_id
  Unique method_names referenced as an individual event: 
  (1) on_lockup_deployed, (2) lock_near, (3) on_lockup_update, (4) end_unlock_near, (5) delegate_all, (6) undelegate, (7) begin_unlock_near, (8) lock_pending_near
  
@@ -12,9 +12,10 @@
  6. Near amount 
  7. Locked near balance 
  8. The block-related data for the event (block hash, block height) 
- */
+*/
 
-CREATE OR REPLACE VIEW {SCHEMA_NAME}.user_activities AS
+DROP VIEW IF EXISTS {SCHEMA_NAME}.user_activities CASCADE;
+CREATE VIEW {SCHEMA_NAME}.user_activities AS
 WITH execution_outcomes_prep AS (
 	SELECT
 		receipt_id
@@ -88,7 +89,7 @@ WITH execution_outcomes_prep AS (
  		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'event'
  		    ELSE NULL 
- 		  END, 'lockup_lock_near') AS event_type --COALESCE required WHEN log IS failed; RETURNS NULL otherwise 
+ 		  END, 'lockup_lock_near') AS event_type --COALESCE required WHEN log IS failed, RETURNS NULL otherwise 
   		, ra.method_name 
   		, ra.event_status
     	, ra.signer_account_id AS account_id
@@ -114,7 +115,7 @@ WITH execution_outcomes_prep AS (
  			)
 )
 , on_lockup_update_prep AS (
-    --There are 2 event_json arrays per on_lockup_update method; 1st event is on_lockup_update; 2nd is ft_mint. 
+    --There are 2 event_json arrays per on_lockup_update method, 1st event is on_lockup_update, 2nd is ft_mint. 
 	-- Single pass over logs array to extract all needed values
     SELECT 
     	ra.receipt_id AS id

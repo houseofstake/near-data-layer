@@ -13,7 +13,8 @@
    7. The block-related data for this vote (block hash or id, block height) 
 */
 
-CREATE OR REPLACE VIEW {SCHEMA_NAME}.proposal_voting_history AS
+DROP VIEW IF EXISTS {SCHEMA_NAME}.proposal_voting_history CASCADE;
+CREATE VIEW {SCHEMA_NAME}.proposal_voting_history AS
 WITH execution_outcomes_prep AS (
 	SELECT 
 		receipt_id 

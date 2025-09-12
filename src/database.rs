@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use fastnear_primitives::block_with_tx_hash::BlockWithTxHashes;
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
-use tracing::info;
+use tracing::{info, warn};
 use serde_json;
 
 #[derive(Debug, Clone)]
@@ -288,48 +288,94 @@ impl Database {
             }
         }
 
-        // Execute view creation files in the correct (reverse) order
+        // Execute view creation files in the correct (reverse) order using transactions
+        info!("Creating database views...");
         let view_files_order = vec![
             "delegation_events.sql",
             "proposal_voting_history.sql",
             "proposals.sql",
             "approved_proposals.sql",
             "registered_voters.sql",
-            "proposal_non_voters.sql",
-            "user_activities.sql"
+            "user_activities.sql",
+            "proposal_non_voters.sql"
         ];
 
-        for file_name in view_files_order {
-            let file_path = format!("sql_files/views/{}", file_name);
-            match std::fs::read_to_string(&file_path) {
-                Ok(content) => {
-                    // Replace schema name placeholder with actual schema name
-                    let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
-                    
-                    // Replace HOS contract placeholder with actual contract address
-                    let content = content.replace("{HOS_CONTRACT}", &settings.hos_contract);
-                    
-                    // For view files, execute the entire content as a single statement
-                    // since they may contain complex CTEs, subqueries, and semicolons within the view definition
-                    let trimmed_content = content.trim();
-                    if !trimmed_content.is_empty() {
-                        match sqlx::query(trimmed_content).execute(&self.pool).await {
-                            Ok(_) => info!("Executed view from {}", file_name),
-                            Err(e) => {
-                                info!("Error executing view from {}: {}", file_name, e);
-                                return Err(anyhow::anyhow!("Failed to execute view creation: {}", e));
-                            }
-                        }
-                    }
-                    info!("Successfully processed view file: {}", file_name);
+        let mut successful_views = 0;
+        let mut failed_views = 0;
+
+        for file_name in view_files_order.iter() {
+            match self.create_view_with_transaction(file_name, settings).await {
+                Ok(_) => {
+                    successful_views += 1;
                 }
                 Err(e) => {
-                    return Err(anyhow::anyhow!("Failed to read view file {}: {}", file_name, e));
+                    warn!("Failed to create view '{}': {}. Continuing with initialization...", file_name, e);
+                    failed_views += 1;
+                    // Continue execution instead of returning error
                 }
             }
         }
         
-        info!("Database views initialized from sql_files/views with schema: {}", settings.db_schema);
+        info!("View creation summary: {} successful, {} failed", successful_views, failed_views);
+        if failed_views > 0 {
+            info!("Some views failed to create but initialization will continue");
+        }
+        info!("Database views initialization completed");
+        Ok(())
+    }
+
+    /// Create a view using a transaction with rollback on error
+    async fn create_view_with_transaction(&self, file_name: &str, settings: &Settings) -> Result<()> {
+        let file_path = format!("sql_files/views/{}", file_name);
+        let content = std::fs::read_to_string(&file_path)
+            .map_err(|e| anyhow::anyhow!("Failed to read view file {}: {}", file_name, e))?;
+
+        // Replace schema name placeholder with actual schema name
+        let content = content.replace("{SCHEMA_NAME}", &settings.db_schema);
+        
+        // Replace HOS contract placeholder with actual contract address
+        let content = content.replace("{HOS_CONTRACT}", &settings.hos_contract);
+        
+        let trimmed_content = content.trim();
+        if trimmed_content.is_empty() {
+            return Err(anyhow::anyhow!("View file '{}' is empty", file_name));
+        }
+
+        // Start a transaction
+        let mut tx = self.pool.begin().await
+            .map_err(|e| anyhow::anyhow!("Failed to begin transaction for view '{}': {}", file_name, e))?;
+
+        // Split into DROP and CREATE statements
+        let statements: Vec<&str> = trimmed_content
+            .split(';')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if statements.is_empty() {
+            return Err(anyhow::anyhow!("No valid SQL statements found in view file '{}'", file_name));
+        }
+
+        // Execute each statement within the transaction
+        for statement in statements.iter() {
+            match sqlx::query(statement).execute(&mut *tx).await {
+                Ok(_) => {
+                    // Statement executed successfully, no logging needed
+                }
+                Err(e) => {
+                    // Rollback the transaction on error
+                    if let Err(rollback_err) = tx.rollback().await {
+                        warn!("Failed to rollback transaction for view '{}': {}", file_name, rollback_err);
+                    }
+                    return Err(anyhow::anyhow!("Failed to create view '{}': {}", file_name, e));
+                }
+            }
+        }
+
+        // Commit the transaction if all statements succeeded
+        tx.commit().await
+            .map_err(|e| anyhow::anyhow!("Failed to commit transaction for view '{}': {}", file_name, e))?;
+        
         Ok(())
     }
 

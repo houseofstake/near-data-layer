@@ -143,7 +143,7 @@ impl DataDogMetrics {
         {
             Ok(response) => {
                 if response.status().is_success() {
-                    info!("Successfully sent DataDog {} metrics", metric_type);
+                    // Successfully sent DataDog metrics - no need to log every success
                 } else {
                     error!(
                         "DataDog API returned error for {} metrics: {} - {}",

@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut settings = Settings::new().expect("Failed to load configuration. Please ensure config/testnet.toml or mainnet.toml exists for the configured chain ID.");
 
     tracing_subscriber::fmt()
-        .with_env_filter("neardata-fetcher=debug")
+        .with_env_filter("near_indexer=debug,neardata-fetcher=debug,fastnear_neardata_fetcher=debug,fastnear=debug,main=info")
         .with_thread_ids(true)
         .with_thread_names(true)
         .with_target(false)
