@@ -431,20 +431,20 @@ impl Database {
         let result = query.execute(&self.pool).await;
 
         // Send database performance metrics if available
-        if let Some(ref metrics) = self.datadog_metrics {
-            let execution_time_ms = start_time.elapsed().as_millis() as f64;
-            let pool_size = self.pool.size() as u32;
-            let active_connections = self.pool.size() - self.pool.num_idle() as u32;
-            let idle_connections = self.pool.num_idle() as u32;
+        // if let Some(ref metrics) = self.datadog_metrics {
+        //     let execution_time_ms = start_time.elapsed().as_millis() as f64;
+        //     let pool_size = self.pool.size() as u32;
+        //     let active_connections = self.pool.size() - self.pool.num_idle() as u32;
+        //     let idle_connections = self.pool.num_idle() as u32;
             
-            // Send metrics synchronously to avoid lifetime issues
-            let _ = metrics.send_database_metrics(
-                execution_time_ms,
-                pool_size,
-                active_connections,
-                idle_connections,
-            ).await;
-        }
+        //     // Send metrics synchronously to avoid lifetime issues
+        //     let _ = metrics.send_database_metrics(
+        //         execution_time_ms,
+        //         pool_size,
+        //         active_connections,
+        //         idle_connections,
+        //     ).await;
+        // }
 
         result.map_err(|e| anyhow::anyhow!(
             "Failed to store block {} (height={}): {}. Database pool timeout may indicate: 1) Too many concurrent operations, 2) Long-running queries blocking pool, 3) Need to increase db_max_connections (currently configured).", 
@@ -465,20 +465,20 @@ impl Database {
         }
         
         // Send database performance metrics if available
-        if let Some(ref metrics) = self.datadog_metrics {
-            let execution_time_ms = start_time.elapsed().as_millis() as f64;
-            let pool_size = self.pool.size() as u32;
-            let active_connections = self.pool.size() - self.pool.num_idle() as u32;
-            let idle_connections = self.pool.num_idle() as u32;
+        // if let Some(ref metrics) = self.datadog_metrics {
+        //     let execution_time_ms = start_time.elapsed().as_millis() as f64;
+        //     let pool_size = self.pool.size() as u32;
+        //     let active_connections = self.pool.size() - self.pool.num_idle() as u32;
+        //     let idle_connections = self.pool.num_idle() as u32;
             
-            // Send performance metrics
-            let _ = metrics.send_database_metrics(
-                execution_time_ms,
-                pool_size,
-                active_connections,
-                idle_connections,
-            ).await;
-        }
+        //     // Send performance metrics
+        //     let _ = metrics.send_database_metrics(
+        //         execution_time_ms,
+        //         pool_size,
+        //         active_connections,
+        //         idle_connections,
+        //     ).await;
+        // }
         
         Ok(())
     }
@@ -495,20 +495,20 @@ impl Database {
         }
         
         // Send database performance metrics if available
-        if let Some(ref metrics) = self.datadog_metrics {
-            let execution_time_ms = start_time.elapsed().as_millis() as f64;
-            let pool_size = self.pool.size() as u32;
-            let active_connections = self.pool.size() - self.pool.num_idle() as u32;
-            let idle_connections = self.pool.num_idle() as u32;
+        // if let Some(ref metrics) = self.datadog_metrics {
+        //     let execution_time_ms = start_time.elapsed().as_millis() as f64;
+        //     let pool_size = self.pool.size() as u32;
+        //     let active_connections = self.pool.size() - self.pool.num_idle() as u32;
+        //     let idle_connections = self.pool.num_idle() as u32;
             
-            // Send performance metrics
-            let _ = metrics.send_database_metrics(
-                execution_time_ms,
-                pool_size,
-                active_connections,
-                idle_connections,
-            ).await;
-        }
+        //     // Send performance metrics
+        //     let _ = metrics.send_database_metrics(
+        //         execution_time_ms,
+        //         pool_size,
+        //         active_connections,
+        //         idle_connections,
+        //     ).await;
+        // }
         
         Ok(())
     }
