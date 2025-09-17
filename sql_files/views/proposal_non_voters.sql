@@ -4,7 +4,8 @@
  References the proposals, registered_voters and proposal_voting_history views. 
 */
 
-CREATE OR REPLACE VIEW {SCHEMA_NAME}.proposal_non_voters AS 
+DROP VIEW IF EXISTS {SCHEMA_NAME}.proposal_non_voters CASCADE;
+CREATE VIEW {SCHEMA_NAME}.proposal_non_voters AS 
 SELECT 
     MD5(CONCAT(p.proposal_id, '_', rv.registered_voter_id)) AS id
     , p.proposal_id

@@ -20,7 +20,7 @@ use dotenvy;
  * All environment variables with "INDEXER_" prefix override config file values.
  */
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Settings {
     // Database Configuration
     pub db_host: String,              // [SECRETS] - Database hostname from secrets manager
@@ -42,9 +42,10 @@ pub struct Settings {
     pub num_threads: u64,             // [CONFIG] - Number of processing threads
     
     // Contract Configuration
-    pub hos_contract: String,   // [CONFIG] - HOS contract address to monitor
+    pub hos_contract: String,         // [CONFIG] - HOS contract address to monitor
     
     // Logging Configuration
+    #[allow(dead_code)]
     pub log_level: String,            // [CONFIG] - Log level (debug, info, warn, error)
     
     // Application Metadata

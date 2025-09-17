@@ -8,13 +8,14 @@
  4. Delegation Event Type (one of ft_burn or ft_mint) 
  5. Boolean indicating whether or not a given delegate_all or undelegate event per delegator_id was the most recent (is_latest_delegator_event)
  6. Delegator ID (the user performing the NEAR delegation) 
- 7. Delegatee ID (the users who are receiving the delegated NEAR; only populated when delegate_method = 'delegate_all') 
- 8. Owner ID (For ft_mint events, this is the user who is receiving the delegated NEAR; for ft_burn events, this is the user who is burning/delegating away the delegated NEAR)
+ 7. Delegatee ID (the users who are receiving the delegated NEAR only, populated when delegate_method = 'delegate_all') 
+ 8. Owner ID (For ft_mint events, this is the user who is receiving the delegated NEAR, for ft_burn events, this is the user who is burning/delegating away the delegated NEAR)
  9. The amount of near that was delegated 
  10. The block-related data for the delegate_all or undelegate event (block hash or id, block height) 
  */
 
-CREATE OR REPLACE VIEW {SCHEMA_NAME}.delegation_events AS 
+DROP VIEW IF EXISTS {SCHEMA_NAME}.delegation_events CASCADE;
+CREATE VIEW {SCHEMA_NAME}.delegation_events AS 
 WITH execution_outcomes_prep AS (
 	SELECT
  		receipt_id 

@@ -10,7 +10,8 @@
    4. The block-related data for this approve_proposal action             (Block hash or id, block height) 
 */
 
-CREATE OR REPLACE VIEW {SCHEMA_NAME}.approved_proposals AS
+DROP VIEW IF EXISTS {SCHEMA_NAME}.approved_proposals CASCADE;
+CREATE VIEW {SCHEMA_NAME}.approved_proposals AS
 WITH execution_outcomes_prep AS (
 	SELECT
 		receipt_id 
