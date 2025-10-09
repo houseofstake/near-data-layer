@@ -26,4 +26,4 @@ app_version = "v3.0.2"
 datadog_enabled = true
 
 # Contract Configuration
-hos_contract = 'TODO'
+hos_contract = 'voteagora.near'
