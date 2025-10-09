@@ -69,7 +69,8 @@ impl Settings {
                 "INDEXER_API_CHAIN_ID environment variable is required. Set to 'testnet' or 'mainnet'".to_string()
             ))?;
         
-        let env = std::env::var("ENVIRONMENT")
+        // Gets implicitly set to whatever ENVIRONMENT is set to, or "development" if not set.
+        let env = std::env::var("INDEXER_ENVIRONMENT")
             .map_err(|_| ConfigError::Message(
                 "ENVIRONMENT environment variable is required. Set to 'development', 'staging' or 'prod'".to_string()
         ))
