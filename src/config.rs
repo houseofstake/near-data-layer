@@ -68,19 +68,12 @@ impl Settings {
             .map_err(|_| ConfigError::Message(
                 "INDEXER_API_CHAIN_ID environment variable is required. Set to 'testnet' or 'mainnet'".to_string()
             ))?;
-        
-        // Gets implicitly set to whatever ENVIRONMENT is set to, or "development" if not set.
-        let env = std::env::var("INDEXER_ENVIRONMENT")
-            .map_err(|_| ConfigError::Message(
-                "ENVIRONMENT environment variable is required. Set to 'development', 'staging' or 'prod'".to_string()
-        ))
 
-        let config_file = match env.as_str() {
-            "development" => "configs/mainnet-development.toml",
-            "staging" => "configs/mainnet-staging.toml",
-            "prod" => "configs/mainnet-prod.toml",
+        let config_file = match chain_id.as_str() {
+            "testnet" => "configs/testnet.toml",
+            "mainnet" => "configs/mainnet.toml",
             _ => return Err(ConfigError::Message(
-                format!("Unsupported chain_id '{}'. Must be 'dev', 'staging' or 'prod'", chain_id)
+                format!("Unsupported chain_id '{}'. Must be 'testnet' or 'mainnet'", chain_id)
             )),
         };
 
