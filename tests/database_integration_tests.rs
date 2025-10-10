@@ -19,7 +19,7 @@ async fn create_test_database() -> Result<Database, Box<dyn std::error::Error>> 
     
     // Use existing settings configuration system
     // Set test-specific environment variables
-    env::set_var("INDEXER_API_CHAIN_ID", "testnet");
+    env::set_var("INDEXER_ENVIRONMENT", "testnet");
     env::set_var("INDEXER_DB_HOST", "localhost");
     env::set_var("INDEXER_DB_PORT", "5432");
     env::set_var("INDEXER_DB_DATABASE", "postgres");

@@ -4,7 +4,7 @@ use std::env;
 
 // Helper function to create test settings
 fn create_test_settings() -> Settings {
-    env::set_var("INDEXER_API_CHAIN_ID", "testnet");
+    env::set_var("INDEXER_ENVIRONMENT", "testnet");
     env::set_var("INDEXER_DB_HOST", "localhost");
     env::set_var("INDEXER_DB_PORT", "5432");
     env::set_var("INDEXER_DB_DATABASE", "test_db");

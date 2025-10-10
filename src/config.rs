@@ -5,9 +5,10 @@ use dotenvy;
 /*
  * CONFIGURATION SOURCES HIERARCHY (in order of precedence):
  * 
- * 1. CONFIG FILES (.toml) - Base configuration loaded from configs/testnet.toml or configs/mainnet.toml
+ * 1. CONFIG FILES (.toml) - Base configuration loaded from environment-specific config files
  *    - Contains default values for non-sensitive settings
- *    - File selection based on INDEXER_API_CHAIN_ID environment variable
+ *    - File selection based on INDEXER_ENVIRONMENT environment variable
+ *    - Supported environments: development, staging, produdction
  * 
  * 2. TERRAFORM VARIABLES (TF_VARS) - Non-sensitive environment variables set by Terraform deployment
  *    - Passed as INDEXER_* environment variables from terraform vm.tf
@@ -63,17 +64,18 @@ impl Settings {
         // Load .env file if present, so env vars are available for config
         dotenvy::dotenv().ok();
 
-        // Determine config file based on required INDEXER_API_CHAIN_ID environment variable
-        let chain_id = std::env::var("INDEXER_API_CHAIN_ID")
+        // Determine config file based on INDEXER_ENVIRONMENT environment variable
+        let environment = std::env::var("INDEXER_ENVIRONMENT")
             .map_err(|_| ConfigError::Message(
-                "INDEXER_API_CHAIN_ID environment variable is required. Set to 'testnet' or 'mainnet'".to_string()
+                "INDEXER_ENVIRONMENT environment variable is required. Set to 'development', 'staging', 'production'".to_string()
             ))?;
 
-        let config_file = match chain_id.as_str() {
-            "testnet" => "configs/testnet.toml",
-            "mainnet" => "configs/mainnet.toml",
+        let config_file = match environment.as_str() {
+            "development" => "configs/development.toml",
+            "staging" => "configs/staging.toml",
+            "production" => "configs/production.toml",
             _ => return Err(ConfigError::Message(
-                format!("Unsupported chain_id '{}'. Must be 'testnet' or 'mainnet'", chain_id)
+                format!("Unsupported environment '{}'. Must be 'development', 'staging', 'production'", environment)
             )),
         };
 
