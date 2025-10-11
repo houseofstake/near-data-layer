@@ -233,6 +233,10 @@ impl Database {
         // Replace HOS contract placeholder with actual contract address from config
         let schema_content = schema_content.replace("{HOS_CONTRACT}", &settings.hos_contract);
         
+        // Replace contract prefix placeholders with actual prefixes from config
+        let schema_content = schema_content.replace("{VENEAR_CONTRACT_PREFIX}", &settings.venear_contract_prefix);
+        let schema_content = schema_content.replace("{VOTING_CONTRACT_PREFIX}", &settings.voting_contract_prefix);
+
         // Split the schema into individual statements
         let statements: Vec<&str> = schema_content
             .split(';')
@@ -268,6 +272,10 @@ impl Database {
                     // Replace HOS contract placeholder with actual contract address
                     let content = content.replace("{HOS_CONTRACT}", &settings.hos_contract);
                     
+                    // Replace contract prefix placeholders with actual prefixes
+                    let content = content.replace("{VENEAR_CONTRACT_PREFIX}", &settings.venear_contract_prefix);
+                    let content = content.replace("{VOTING_CONTRACT_PREFIX}", &settings.voting_contract_prefix);
+
                     // For helper functions, execute the entire content as a single statement
                     // since they may contain dollar-quoted strings and semicolons within function bodies
                     let trimmed_content = content.trim();
@@ -336,6 +344,10 @@ impl Database {
         // Replace HOS contract placeholder with actual contract address
         let content = content.replace("{HOS_CONTRACT}", &settings.hos_contract);
         
+        // Replace contract prefix placeholders with actual prefixes
+        let content = content.replace("{VENEAR_CONTRACT_PREFIX}", &settings.venear_contract_prefix);
+        let content = content.replace("{VOTING_CONTRACT_PREFIX}", &settings.voting_contract_prefix);
+
         let trimmed_content = content.trim();
         if trimmed_content.is_empty() {
             return Err(anyhow::anyhow!("View file '{}' is empty", file_name));
