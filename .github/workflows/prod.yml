@@ -1,10 +1,10 @@
 name: Deploy Prod
 
-on:
-  workflow_dispatch: # This allows the workflow to be manually triggered from the GitHub UI
-  push:
-    branches:
-      - main
+# on:
+#   workflow_dispatch: # This allows the workflow to be manually triggered from the GitHub UI
+#   push:
+#     branches:
+#       - main
 
 env:
   PROJECT_NUMBER: "237405837378"
