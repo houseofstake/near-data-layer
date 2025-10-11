@@ -27,3 +27,5 @@ datadog_enabled = true
 
 # Contract Configuration
 hos_contract = 'dao'
+venear_contract_prefix = 'venear'
+voting_contract_prefix = 'vote'
