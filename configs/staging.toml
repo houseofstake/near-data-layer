@@ -12,7 +12,7 @@ db_schema = "fastnear"
 db_max_connections = 24
 
 # Indexer Configuration
-start_block = 167673622 # first block (minus 10) when `dao` was created 167,673,632 https://nearblocks.io/txns/JAMzi8bzmakDutgQKo3XAZC7MLrso54uqqHtQZoHBewW
+start_block = 167565317 # first block (minus 10) when `stagingdao.near` was created 167,565,327 https://nearblocks.io/blocks/GmMw4oUL8SRMWZ7J82uJeSYwDkaov2rtGUw8LgjjqSTP
 poll_interval = 5 # this is the timeout
 retry_delay = 1
 num_threads = 4
@@ -26,4 +26,4 @@ app_version = "v1.0.0"
 datadog_enabled = true
 
 # Contract Configuration
-hos_contract = '.dao'
+hos_contract = 'stagingdao.near'
