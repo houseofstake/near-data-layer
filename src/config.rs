@@ -100,6 +100,7 @@ impl Settings {
     }
 
     pub fn is_hos_contract(&self, account_id: &str) -> bool {
-        account_id.contains(&self.hos_contract)
+        let suffix = format!(".{}", self.hos_contract.to_lowercase());
+        account_id.to_lowercase().ends_with(&suffix)
     }
 }
