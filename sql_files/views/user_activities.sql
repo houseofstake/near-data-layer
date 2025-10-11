@@ -73,8 +73,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'on_lockup_deployed'
 		AND ra.receiver_id IN (     
- 			'v.{HOS_CONTRACT}'      
- 			, 'vote.{HOS_CONTRACT}' 
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
  			)
 )
 -------------
@@ -150,8 +150,8 @@ WITH execution_outcomes_prep AS (
     WHERE 
     	ra.method_name = 'on_lockup_update'
 		AND ra.receiver_id IN (     
- 			'v.{HOS_CONTRACT}'      
- 			, 'vote.{HOS_CONTRACT}' 
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
  			)
     GROUP BY 1,2,3,4,5,6,7,8,9
 )
@@ -211,8 +211,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name IN ('delegate_all', 'undelegate')
 		AND ra.receiver_id IN (     
- 			'v.{HOS_CONTRACT}'      
- 			, 'vote.{HOS_CONTRACT}' 
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
  			)
 )
 ---------------------

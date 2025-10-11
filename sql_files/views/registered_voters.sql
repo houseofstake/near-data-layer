@@ -42,8 +42,8 @@ receipt_actions_prep AS (
 	WHERE
 		ra.action_kind = 'FunctionCall'
         AND ra.receiver_id IN (     --House of Stake contracts
- 			'v.{HOS_CONTRACT}'      --veNEAR contract 
- 			, 'vote.{HOS_CONTRACT}' --Voting contract 
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
  			)
 )
 /* Sourcing APY Growth Rate Variables (to calc Voting Power from Rewards) */

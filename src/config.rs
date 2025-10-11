@@ -44,6 +44,8 @@ pub struct Settings {
     
     // Contract Configuration
     pub hos_contract: String,         // [CONFIG] - HOS contract address to monitor
+    pub venear_contract_prefix: String,  // [CONFIG] - veNEAR contract prefix (e.g., 'v', 'vt')
+    pub voting_contract_prefix: String,  // [CONFIG] - Voting contract prefix (e.g., 'vote', 'vote-dev')
     
     // Logging Configuration
     #[allow(dead_code)]
