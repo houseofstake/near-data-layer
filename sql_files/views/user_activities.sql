@@ -110,8 +110,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'lock_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
- 			'v.{HOS_CONTRACT}'      
- 			, 'vote.{HOS_CONTRACT}' 
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
  			)
 )
 , on_lockup_update_prep AS (
@@ -240,8 +240,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'begin_unlock_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
- 			'v.{HOS_CONTRACT}'      
- 			, 'vote.{HOS_CONTRACT}' 
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
  			)
  )
 ------------------------
@@ -269,8 +269,8 @@ WITH execution_outcomes_prep AS (
   	WHERE
     	ra.method_name = 'lock_pending_near'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
- 			'v.{HOS_CONTRACT}'      
- 			, 'vote.{HOS_CONTRACT}' 
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
  			)
  )
  ----------

@@ -27,3 +27,5 @@ datadog_enabled = true
 
 # Contract Configuration
 hos_contract = 'voteagora.near'
+venear_contract_prefix = 'v'
+voting_contract_prefix = 'vote'
