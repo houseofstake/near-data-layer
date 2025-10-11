@@ -12,18 +12,18 @@ db_schema = "fastnear"
 db_max_connections = 24
 
 # Indexer Configuration
-start_block = 158487000 # first block with voteagora contract action 158,487,483 https://nearblocks.io/txns/EDxgoJDkZjEYdjSMMgvkq1x1QfQ7EibnAxbF9WXdP1ri?tab=execution#4MJfN2K3S1saXimYKsYzjWKERZ7pgZArm1yrySV9Cu1Q
+start_block = 167673622 # first block (minus 10) when `dao` was created 167,673,632 https://nearblocks.io/txns/JAMzi8bzmakDutgQKo3XAZC7MLrso54uqqHtQZoHBewW
 poll_interval = 5 # this is the timeout
 retry_delay = 1
 num_threads = 4
 
 # Other
 log_level = "info"
-app_version = "v3.0.2-staging"
+app_version = "v1.0.0"
 
 # DataDog Configuration - set via environment variables
 # dd_api_key, environment, dd_environment set via INDEXER_* env vars  
 datadog_enabled = true
 
 # Contract Configuration
-hos_contract = 'voteagora.near'
+hos_contract = '.dao'
