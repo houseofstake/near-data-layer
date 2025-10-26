@@ -93,35 +93,36 @@ receipt_actions_prep AS (
 )
 /* Sourcing Latest Voting Power from Locks + Unlocks */ 
 , voting_power_from_locks_unlocks AS (
-	SELECT 
-		vplu.*
-	FROM (
-			SELECT
-				ra.block_timestamp
-				, ra.receipt_id
-				, COALESCE(CASE 
- 		    		WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    		THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
- 		    		ELSE NULL 
- 		    		END
-					, ra.signer_account_id) AS registered_voter_id
-				, CASE 
- 		    		WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    		THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC
- 		    		ELSE NULL 
- 		    		END AS voting_power_from_locks_unlocks
- 				, CASE 
- 		    		WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    		THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'timestamp')::NUMERIC
- 		    		ELSE NULL 
- 		    		END AS lockup_update_at_ns  --Timestamp (nanoseconds) when user locks or unlocks near 
-    			, ROW_NUMBER() OVER (PARTITION BY signer_account_id ORDER BY block_timestamp DESC) AS row_num
-  			FROM receipt_actions_prep AS ra
-  			WHERE
-    			ra.method_name = 'on_lockup_update'
-    	) AS vplu
-    WHERE 
-    	vplu.row_num = 1
+  SELECT DISTINCT ON (rap.signer_account_id)
+    rap.block_timestamp,
+    rap.receipt_id,
+    -- same semantics as before (prefer account_id from logs, fall back to signer)
+    COALESCE(
+      CASE
+        WHEN (fastnear.safe_json_parse(replace(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
+        THEN (fastnear.safe_json_parse(replace(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'account_id')
+        ELSE NULL
+      END,
+      rap.signer_account_id
+    )                                           AS registered_voter_id,
+    CASE
+      WHEN (fastnear.safe_json_parse(replace(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
+      THEN ((fastnear.safe_json_parse(replace(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'locked_near_balance'))::numeric
+      ELSE NULL
+    END                                         AS voting_power_from_locks_unlocks,
+    CASE
+      WHEN (fastnear.safe_json_parse(replace(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
+      THEN ((fastnear.safe_json_parse(replace(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'timestamp'))::numeric
+      ELSE NULL
+    END                                         AS lockup_update_at_ns,
+    1                                           AS row_num   -- keep compatibility with downstream "WHERE row_num = 1"
+  FROM receipt_actions_prep AS rap
+  WHERE
+      rap.method_name = 'on_lockup_update'
+  ORDER BY
+      rap.signer_account_id,            -- DISTINCT ON key
+      rap.block_timestamp DESC,         -- "latest" first
+      rap.receipt_id DESC               -- deterministic tie-breaker
 )
 /* Sourcing Registered Voters from Deploy Lockup Event (Excluding dupes due to account already being registered) */
   --Whenever a user registers to vote, there should always be a non-null storage deposit, aka, initial voting power amount.
