@@ -16,25 +16,19 @@
 
 DROP VIEW IF EXISTS {SCHEMA_NAME}.delegation_events CASCADE;
 CREATE VIEW {SCHEMA_NAME}.delegation_events AS 
-WITH execution_outcomes_prep AS (
-	SELECT
- 		receipt_id 
- 		, status
- 		, logs
- 	FROM {SCHEMA_NAME}.execution_outcomes 
-)
-, receipt_actions_prep AS (
+WITH receipt_actions_prep AS (
 	SELECT
  		decode(ra.args_base64, 'base64') AS args
  		, eo.status 					 
  		, eo.logs 						 
  		, ra.*
  	FROM {SCHEMA_NAME}.receipt_actions AS ra
- 	INNER JOIN execution_outcomes_prep AS eo
+ 	INNER JOIN {SCHEMA_NAME}.execution_outcomes AS eo
  		ON ra.receipt_id = eo.receipt_id
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
+		AND ra.method_name IN ('delegate_all', 'undelegate')
 		AND ra.receiver_id IN (     --House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
@@ -45,16 +39,9 @@ WITH execution_outcomes_prep AS (
 		ra.*
 		, ROW_NUMBER() OVER (PARTITION BY ra.predecessor_id ORDER BY ra.block_timestamp DESC) AS row_num 
 	FROM receipt_actions_prep AS ra
-	WHERE 
-		ra.method_name IN ('delegate_all', 'undelegate')
 )
 SELECT
-	MD5(CONCAT(ra.receipt_id, '_',  	
- 		CASE 
- 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		    ELSE NULL 
- 		  END)) AS id 
+	ra.receipt_id AS id 
  	, ra.receipt_id
  	, DATE(ra.block_timestamp) AS event_date
  	, ra.block_timestamp AS event_timestamp
@@ -67,8 +54,8 @@ SELECT
  		END AS delegatee_id --null for the undelegate event 
  	, ra.method_name AS delegate_method
 	, CASE 
- 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'event'
+ 		WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'event'
  		ELSE NULL 
  		END AS delegate_event 
 	, CASE 
@@ -76,13 +63,13 @@ SELECT
  	 	THEN TRUE 
  	 	ELSE FALSE END AS is_latest_delegator_event 
 	, CASE 
- 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
  		ELSE NULL 
  		END AS owner_id
 	, CASE 
- 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN (safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
  		ELSE NULL 
  		END AS near_amount
 		
@@ -91,7 +78,5 @@ SELECT
  	, ra.block_hash
 	, ra.block_timestamp
  FROM delegate_undelegate_events AS ra
- LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
- 	ON TRUE
  ORDER BY ra.block_timestamp DESC
 ;

@@ -15,24 +15,18 @@
 
 DROP VIEW IF EXISTS {SCHEMA_NAME}.proposal_voting_history CASCADE;
 CREATE VIEW {SCHEMA_NAME}.proposal_voting_history AS
-WITH execution_outcomes_prep AS (
-	SELECT 
-		receipt_id 
-		, status
-		, logs
-	FROM {SCHEMA_NAME}.execution_outcomes 
-)
-, receipt_actions_prep AS (
+WITH receipt_actions_prep AS (
   	SELECT 
     	decode(ra.args_base64, 'base64') AS args
     	, ra.*
     	, eo.logs 
   	FROM {SCHEMA_NAME}.receipt_actions AS ra
-  	INNER JOIN execution_outcomes_prep AS eo 
+  	INNER JOIN {SCHEMA_NAME}.execution_outcomes AS eo 
  		ON ra.receipt_id = eo.receipt_id 
  		AND eo.status = 'SuccessValue'
   	WHERE 
     	ra.action_kind = 'FunctionCall'
+		AND ra.method_name IN ('create_proposal', 'vote')
 		AND ra.receiver_id IN (     --House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract

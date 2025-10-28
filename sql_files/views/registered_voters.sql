@@ -32,7 +32,6 @@ WITH
 receipt_actions_prep AS (
 	SELECT
 		decode(ra.args_base64, 'base64') AS args_decoded
-		, eo.status AS action_status
 		, eo.logs AS action_logs
 		, ra.*
 	FROM {SCHEMA_NAME}.receipt_actions AS ra
@@ -41,6 +40,7 @@ receipt_actions_prep AS (
 		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
 	WHERE
 		ra.action_kind = 'FunctionCall'
+		AND ra.method_name IN ('new', 'storage_deposit', 'on_lockup_update', 'deploy_lockup')
         AND ra.receiver_id IN (     --House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
