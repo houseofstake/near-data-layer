@@ -41,7 +41,12 @@ WITH receipt_actions_prep AS (
 	FROM receipt_actions_prep AS ra
 )
 SELECT
-	ra.receipt_id AS id 
+	MD5(CONCAT(ra.receipt_id, '_',  	
+ 		CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		    ELSE NULL 
+ 		  END)) AS id 
  	, ra.receipt_id
  	, DATE(ra.block_timestamp) AS event_date
  	, ra.block_timestamp AS event_timestamp
@@ -54,8 +59,8 @@ SELECT
  		END AS delegatee_id --null for the undelegate event 
  	, ra.method_name AS delegate_method
 	, CASE 
- 		WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'event'
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'event'
  		ELSE NULL 
  		END AS delegate_event 
 	, CASE 
@@ -63,13 +68,13 @@ SELECT
  	 	THEN TRUE 
  	 	ELSE FALSE END AS is_latest_delegator_event 
 	, CASE 
- 		WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
  		ELSE NULL 
  		END AS owner_id
 	, CASE 
- 		WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		THEN (safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
  		ELSE NULL 
  		END AS near_amount
 		
@@ -78,5 +83,7 @@ SELECT
  	, ra.block_hash
 	, ra.block_timestamp
  FROM delegate_undelegate_events AS ra
+ LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
+ 	ON TRUE
  ORDER BY ra.block_timestamp DESC
 ;
