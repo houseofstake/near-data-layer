@@ -16,14 +16,7 @@
 
 DROP VIEW IF EXISTS {SCHEMA_NAME}.user_activities CASCADE;
 CREATE VIEW {SCHEMA_NAME}.user_activities AS
-WITH execution_outcomes_prep AS (
-	SELECT
-		receipt_id
-		, status
-		, logs
-	FROM {SCHEMA_NAME}.execution_outcomes
-)
-, receipt_actions_prep AS (
+WITH receipt_actions_prep AS (
 	SELECT
 		decode(ra.args_base64, 'base64') AS args_decoded
 		, CASE 
@@ -35,10 +28,11 @@ WITH execution_outcomes_prep AS (
 		, eo.logs                        AS logs
 		, ra.*
 	FROM {SCHEMA_NAME}.receipt_actions AS ra
-	LEFT JOIN execution_outcomes_prep AS eo
+	LEFT JOIN {SCHEMA_NAME}.execution_outcomes AS eo
 		ON ra.receipt_id = eo.receipt_id
 	WHERE
 		ra.action_kind = 'FunctionCall'
+		AND ra.method_name IN ('on_lockup_deployed', 'lock_near', 'on_lockup_update', 'delegate_all', 'undelegate', 'begin_unlock_near', 'lock_pending_near')
 )
 --------------------
 --Account Creation--
@@ -58,8 +52,8 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, ra.predecessor_id AS hos_contract_address 
     	, CASE 
- 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'lockup_deposit')::NUMERIC
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'lockup_deposit')::NUMERIC
  		    ELSE NULL 
  		  END AS near_amount 
     	, CASE 
@@ -94,9 +88,9 @@ WITH execution_outcomes_prep AS (
   		, ra.event_status
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, CASE 
- 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'amount')::NUMERIC
+ 	    , CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
  		    ELSE NULL 
  		  END AS near_amount 
   		, CASE 
@@ -229,8 +223,8 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, CASE 
- 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'amount')::NUMERIC
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
  		    ELSE NULL 
  		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type
@@ -258,8 +252,8 @@ WITH execution_outcomes_prep AS (
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, CASE 
- 		    WHEN safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(DECODE(ra.args_base64, 'base64'), 'UTF8'))->>'amount')::NUMERIC
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
  		    ELSE NULL 
  		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance --There ARE NO logs FOR this event_type

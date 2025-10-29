@@ -12,21 +12,14 @@
 
 DROP VIEW IF EXISTS {SCHEMA_NAME}.approved_proposals CASCADE;
 CREATE VIEW {SCHEMA_NAME}.approved_proposals AS
-WITH execution_outcomes_prep AS (
-	SELECT
-		receipt_id 
-		, status
-		, logs
-	FROM {SCHEMA_NAME}.execution_outcomes
-)
-, approve_proposal_action_prep AS (
+WITH approve_proposal_action_prep AS (
  	SELECT
     	decode(ra.args_base64, 'base64') AS args
     	, eo.status
     	, eo.logs
     	, ra.*
   	FROM {SCHEMA_NAME}.receipt_actions AS ra
-  	INNER JOIN execution_outcomes_prep AS eo
+  	INNER JOIN {SCHEMA_NAME}.execution_outcomes AS eo
  		ON ra.receipt_id = eo.receipt_id
 	 	AND eo.status = 'SuccessReceiptId'
   	WHERE

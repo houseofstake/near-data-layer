@@ -15,24 +15,18 @@
 
 DROP VIEW IF EXISTS {SCHEMA_NAME}.proposal_voting_history CASCADE;
 CREATE VIEW {SCHEMA_NAME}.proposal_voting_history AS
-WITH execution_outcomes_prep AS (
-	SELECT 
-		receipt_id 
-		, status
-		, logs
-	FROM {SCHEMA_NAME}.execution_outcomes 
-)
-, receipt_actions_prep AS (
+WITH receipt_actions_prep AS (
   	SELECT 
     	decode(ra.args_base64, 'base64') AS args
     	, ra.*
     	, eo.logs 
   	FROM {SCHEMA_NAME}.receipt_actions AS ra
-  	INNER JOIN execution_outcomes_prep AS eo 
+  	INNER JOIN {SCHEMA_NAME}.execution_outcomes AS eo 
  		ON ra.receipt_id = eo.receipt_id 
  		AND eo.status = 'SuccessValue'
   	WHERE 
     	ra.action_kind = 'FunctionCall'
+		AND ra.method_name IN ('create_proposal', 'vote')
 		AND ra.receiver_id IN (     --House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
@@ -124,13 +118,16 @@ WITH execution_outcomes_prep AS (
  		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->>'proposal_id')::NUMERIC
  		    ELSE NULL 
  		    END IS NOT NULL
-	ORDER BY proposal_id ASC, voted_at ASC 
 )
 , latest_vote_per_proposal_and_voter AS (
-	SELECT 
+	SELECT DISTINCT ON (proposal_id, voter_id)
 		*
-		, ROW_NUMBER() OVER (PARTITION BY proposal_id, voter_id ORDER BY voted_at DESC) AS row_num 
 	FROM proposal_voting_history 
+	ORDER BY 
+		proposal_id,
+		voter_id,       -- DISTINCT ON key
+		voted_at DESC,  -- "latest" first 
+		receipt_id DESC -- deterministic tie-breaker
 )
 SELECT 
 	l.id 
@@ -153,6 +150,4 @@ SELECT
 FROM latest_vote_per_proposal_and_voter AS l
 LEFT JOIN proposal_metadata AS pm 
 	ON l.proposal_id = pm.proposal_id
-WHERE 
-	l.row_num = 1
 ;

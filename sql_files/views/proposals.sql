@@ -11,27 +11,19 @@
 
 DROP VIEW IF EXISTS {SCHEMA_NAME}.proposals CASCADE;
 CREATE VIEW {SCHEMA_NAME}.proposals AS 
-WITH execution_outcomes_prep AS (
- 	SELECT 
- 		receipt_id
- 		, status
- 		, logs
-		, results_json
- 	FROM {SCHEMA_NAME}.execution_outcomes
-)
-, receipt_actions_prep AS (
+WITH receipt_actions_prep AS (
 	SELECT
  		decode(ra.args_base64, 'base64') AS args_decoded
- 		, eo.status AS action_status
  		, eo.logs AS action_logs
 		, eo.results_json
  		, ra.*
  	FROM {SCHEMA_NAME}.receipt_actions AS ra
- 	INNER JOIN execution_outcomes_prep AS eo
+ 	INNER JOIN {SCHEMA_NAME}.execution_outcomes AS eo
  		ON ra.receipt_id = eo.receipt_id
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
+		AND ra.method_name IN ('create_proposal', 'approve_proposal', 'on_get_snapshot','reject_proposal')
 		AND ra.receiver_id IN (     --House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
@@ -41,7 +33,6 @@ WITH execution_outcomes_prep AS (
  	SELECT
  		ra.receipt_id AS id
  		, ra.receipt_id AS receipt_id
- 		, DATE(ra.block_timestamp) AS proposal_created_date
  		, ra.block_timestamp AS proposal_created_at
 
  		--Proposal Details
@@ -130,6 +121,8 @@ WITH execution_outcomes_prep AS (
  	FROM receipt_actions_prep AS ra
  	INNER JOIN approve_proposal AS ap 
  		ON ra.receipt_id = ap.snapshot_receipt_id
+	WHERE 
+		ra.method_name = 'on_get_snapshot'
 )
  , reject_proposal as (
  	SELECT

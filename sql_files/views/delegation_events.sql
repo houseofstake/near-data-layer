@@ -16,25 +16,19 @@
 
 DROP VIEW IF EXISTS {SCHEMA_NAME}.delegation_events CASCADE;
 CREATE VIEW {SCHEMA_NAME}.delegation_events AS 
-WITH execution_outcomes_prep AS (
-	SELECT
- 		receipt_id 
- 		, status
- 		, logs
- 	FROM {SCHEMA_NAME}.execution_outcomes 
-)
-, receipt_actions_prep AS (
+WITH receipt_actions_prep AS (
 	SELECT
  		decode(ra.args_base64, 'base64') AS args
  		, eo.status 					 
  		, eo.logs 						 
  		, ra.*
  	FROM {SCHEMA_NAME}.receipt_actions AS ra
- 	INNER JOIN execution_outcomes_prep AS eo
+ 	INNER JOIN {SCHEMA_NAME}.execution_outcomes AS eo
  		ON ra.receipt_id = eo.receipt_id
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
+		AND ra.method_name IN ('delegate_all', 'undelegate')
 		AND ra.receiver_id IN (     --House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
@@ -45,8 +39,6 @@ WITH execution_outcomes_prep AS (
 		ra.*
 		, ROW_NUMBER() OVER (PARTITION BY ra.predecessor_id ORDER BY ra.block_timestamp DESC) AS row_num 
 	FROM receipt_actions_prep AS ra
-	WHERE 
-		ra.method_name IN ('delegate_all', 'undelegate')
 )
 SELECT
 	MD5(CONCAT(ra.receipt_id, '_',  	
