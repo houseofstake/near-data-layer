@@ -152,3 +152,18 @@ SELECT delegator, delegate, delegation_timestamp
 FROM delegation_events 
 ORDER BY delegation_timestamp DESC;
 ```
+
+### On/offchain data abstraction
+
+For each of the respective data views there is a corresponding set of actions being performed on-chain. Some of this data is actually reflected in contract state.
+This table can be used to determine which view is an amalgamation of contract actions vs. having a direct relationship to contract storage. See [this](https://github.com/houseofstake/house-of-stake-contracts) repo for the contracts.
+
+| Data view | Contract State? | Storage Contract | Actions | Off-chain only |
+| --- | --- | --- | --- | ---|
+| proposals | Yes | `voting-contract` | `create_proposal`, `get_proposal` | No
+| registered_voters | No | N/A | N/A | Yes
+| proposal_voting_history | No | N/A | `vote` | Yes
+| user_activities | No | N/A | N/A | Yes
+| delegation_events | No | N/A | N/A | Yes
+| approved_proposals | Yes | `voting-contract` | `update` | No
+| proposal_non_voters | No | No | `update` | Yes
