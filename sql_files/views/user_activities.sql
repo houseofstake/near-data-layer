@@ -32,7 +32,7 @@ WITH receipt_actions_prep AS (
 		ON ra.receipt_id = eo.receipt_id
 	WHERE
 		ra.action_kind = 'FunctionCall'
-		AND ra.method_name IN ('on_lockup_deployed', 'lock_near', 'on_lockup_update', 'delegate_all', 'undelegate', 'begin_unlock_near', 'lock_pending_near')
+		AND ra.method_name IN ('on_lockup_deployed', 'lock_near', 'on_lockup_update', 'delegate_all', 'undelegate', 'begin_unlock_near', 'lock_pending_near', 'withdraw_from_staking_pool', 'unstake')
 )
 --------------------
 --Account Creation--
@@ -191,12 +191,12 @@ WITH receipt_actions_prep AS (
  		    ELSE NULL 
  		  END, ra.signer_account_id) AS account_id
     	, ra.receiver_id AS hos_contract_address 
-	    , CASE 
+ 	    , CASE 
  		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
  		    THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
  		    ELSE NULL 
  		  END AS near_amount
-	    , NULL::NUMERIC AS locked_near_balance --This does NOT exist FOR delegate_all AND undelegate events 
+ 	    , NULL::NUMERIC AS locked_near_balance --This does NOT exist FOR delegate_all AND undelegate events 
     	, ra.block_height
     	, ra.block_hash
   	FROM receipt_actions_prep AS ra
@@ -267,6 +267,64 @@ WITH receipt_actions_prep AS (
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
  			)
  )
+----------------------------
+--Withdraw From Staking Pool--
+----------------------------
+, withdraw_from_staking_pool AS ( 
+  	SELECT
+  		ra.receipt_id AS id 
+  		, ra.receipt_id
+  		, ra.block_timestamp AS event_timestamp
+  		, method_name AS event_type 
+  		, ra.method_name 
+  		, ra.event_status
+    	, ra.signer_account_id AS account_id
+    	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
+		, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount 
+		, NULL::NUMERIC AS locked_near_balance
+    	, ra.block_height
+    	, ra.block_hash
+  	FROM receipt_actions_prep AS ra
+  	WHERE
+    	ra.method_name = 'withdraw_from_staking_pool'
+		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+ 			)
+ )
+-----------
+--Unstake--
+-----------
+, unstake AS ( 
+  	SELECT
+  		ra.receipt_id AS id 
+  		, ra.receipt_id
+  		, ra.block_timestamp AS event_timestamp
+  		, method_name AS event_type 
+  		, ra.method_name 
+  		, ra.event_status
+    	, ra.signer_account_id AS account_id
+    	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
+		, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount 
+		, NULL::NUMERIC AS locked_near_balance
+    	, ra.block_height
+    	, ra.block_hash
+  	FROM receipt_actions_prep AS ra
+  	WHERE
+    	ra.method_name = 'unstake'
+		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+ 			)
+ )
  ----------
  --UNIONS--
  ----------
@@ -282,6 +340,10 @@ WITH receipt_actions_prep AS (
  	SELECT * FROM begin_unlock_near
  	 	UNION ALL 
  	SELECT * FROM relock_pending_near
+        UNION ALL
+    SELECT * FROM withdraw_from_staking_pool
+        UNION ALL
+    SELECT * FROM unstake
 )
  SELECT 
  	id 
