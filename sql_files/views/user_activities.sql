@@ -282,8 +282,8 @@ WITH receipt_actions_prep AS (
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, CASE 
  		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
- 		    ELSE NULL 
+ 		    THEN COALESCE((safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC, 0)
+ 		    ELSE 0 
  		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance
     	, ra.block_height
@@ -291,10 +291,6 @@ WITH receipt_actions_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name IN ('withdraw_from_staking_pool', 'withdraw_all_from_staking_pool')
-		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
-			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
-			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
- 			)
  )
 -----------
 --Unstake--
@@ -311,8 +307,8 @@ WITH receipt_actions_prep AS (
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
 		, CASE 
  		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
- 		    ELSE NULL 
+ 		    THEN COALESCE((safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC, 0)
+ 		    ELSE 0 
  		  END AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance
     	, ra.block_height
@@ -320,10 +316,7 @@ WITH receipt_actions_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name IN ('unstake', 'unstake_all')
-		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
-			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
-			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
- 			)
+		AND ra.receiver_id LIKE '%lockup%'
  )
  ----------
  --UNIONS--
