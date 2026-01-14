@@ -316,7 +316,6 @@ WITH receipt_actions_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name IN ('unstake', 'unstake_all')
-		AND ra.receiver_id LIKE '%lockup%'
  )
  ----------
  --UNIONS--
