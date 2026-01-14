@@ -4,6 +4,7 @@ use anyhow::Result;
 use fastnear_primitives::block_with_tx_hash::BlockWithTxHashes;
 use fastnear_primitives::near_primitives::views::{ActionView, ReceiptEnumView, ExecutionStatusView};
 use base64::{Engine as _, engine::general_purpose};
+use tracing::info;
 
 pub struct Processor {
     database: Database,
@@ -140,6 +141,7 @@ impl Processor {
                                     "on_lockup_deployed" | "on_lockup_update" |
                                     "delegate_all" | "undelegate"
                                 ) {
+                                    info!("Found relevant method in non-HOS contract. Receipt: {}, Method: {}, Receiver: {}", receipt_id, method, receiver_id);
                                     is_relevant = true;
                                     break;
                                 }
