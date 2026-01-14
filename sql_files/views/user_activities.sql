@@ -280,15 +280,24 @@ WITH receipt_actions_prep AS (
   		, ra.event_status
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, CASE 
- 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
- 		    ELSE NULL 
- 		  END AS near_amount 
+		, COALESCE(
+            CASE 
+                WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+                THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
+                ELSE NULL
+            END,
+            CASE 
+                WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+                THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+                ELSE NULL 
+            END,
+            0
+        ) AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance
     	, ra.block_height
     	, ra.block_hash
   	FROM receipt_actions_prep AS ra
+    LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs ON TRUE
   	WHERE
     	ra.method_name IN ('withdraw_from_staking_pool', 'withdraw_all_from_staking_pool')
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
@@ -309,15 +318,24 @@ WITH receipt_actions_prep AS (
   		, ra.event_status
     	, ra.signer_account_id AS account_id
     	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
-		, CASE 
- 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
- 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
- 		    ELSE NULL 
- 		  END AS near_amount 
+		, COALESCE(
+            CASE 
+                WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+                THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
+                ELSE NULL
+            END,
+            CASE 
+                WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+                THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+                ELSE NULL 
+            END,
+            0
+        ) AS near_amount 
 		, NULL::NUMERIC AS locked_near_balance
     	, ra.block_height
     	, ra.block_hash
   	FROM receipt_actions_prep AS ra
+    LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs ON TRUE
   	WHERE
     	ra.method_name IN ('unstake', 'unstake_all')
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
