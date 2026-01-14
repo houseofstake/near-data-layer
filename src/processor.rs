@@ -122,8 +122,34 @@ impl Processor {
                 let predecessor_id = receipt.predecessor_id.to_string();
                 let receipt_id = receipt.receipt_id.to_string();
 
-                // Filter for HOS contracts
-                if self.settings.is_hos_contract(&receiver_id) || self.settings.is_hos_contract(&predecessor_id) {
+                // Check if this receipt is relevant (HOS contract or contains relevant methods)
+                let is_hos_related = self.settings.is_hos_contract(&receiver_id) || self.settings.is_hos_contract(&predecessor_id);
+                
+                let mut is_relevant = is_hos_related;
+
+                // If not directly HOS related, check if it contains relevant methods (e.g. for Lockup contracts)
+                if !is_relevant {
+                    if let ReceiptEnumView::Action { actions: action_list, .. } = &receipt.receipt {
+                        for action in action_list {
+                            if let ActionView::FunctionCall { method_name, .. } = action {
+                                let method = method_name.as_str();
+                                if matches!(method, 
+                                    "unstake" | "unstake_all" | 
+                                    "withdraw_from_staking_pool" | "withdraw_all_from_staking_pool" | 
+                                    "lock_near" | "begin_unlock_near" | "lock_pending_near" |
+                                    "on_lockup_deployed" | "on_lockup_update" |
+                                    "delegate_all" | "undelegate"
+                                ) {
+                                    is_relevant = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Filter for HOS contracts or relevant methods
+                if is_relevant {
                     // Process receipt actions
                     if let ReceiptEnumView::Action { 
                         signer_id, 
