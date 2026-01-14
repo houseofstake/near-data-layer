@@ -32,7 +32,7 @@ WITH receipt_actions_prep AS (
 		ON ra.receipt_id = eo.receipt_id
 	WHERE
 		ra.action_kind = 'FunctionCall'
-		AND ra.method_name IN ('on_lockup_deployed', 'lock_near', 'on_lockup_update', 'delegate_all', 'undelegate', 'begin_unlock_near', 'lock_pending_near', 'withdraw_from_staking_pool', 'unstake')
+		AND ra.method_name IN ('on_lockup_deployed', 'lock_near', 'on_lockup_update', 'delegate_all', 'undelegate', 'begin_unlock_near', 'lock_pending_near', 'withdraw_from_staking_pool', 'withdraw_all_from_staking_pool', 'unstake', 'unstake_all')
 )
 --------------------
 --Account Creation--
@@ -290,7 +290,7 @@ WITH receipt_actions_prep AS (
     	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
-    	ra.method_name = 'withdraw_from_staking_pool'
+    	ra.method_name IN ('withdraw_from_staking_pool', 'withdraw_all_from_staking_pool')
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
@@ -319,7 +319,7 @@ WITH receipt_actions_prep AS (
     	, ra.block_hash
   	FROM receipt_actions_prep AS ra
   	WHERE
-    	ra.method_name = 'unstake'
+    	ra.method_name IN ('unstake', 'unstake_all')
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
