@@ -300,6 +300,7 @@ WITH receipt_actions_prep AS (
     LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs ON TRUE
   	WHERE
     	ra.method_name IN ('withdraw_from_staking_pool', 'withdraw_all_from_staking_pool')
+        AND ra.event_status = 'succeeded'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
@@ -338,6 +339,7 @@ WITH receipt_actions_prep AS (
     LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs ON TRUE
   	WHERE
     	ra.method_name IN ('unstake', 'unstake_all')
+        AND ra.event_status = 'succeeded'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
