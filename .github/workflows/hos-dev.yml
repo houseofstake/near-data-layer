@@ -1,0 +1,56 @@
+name: Deploy HOS Dev
+
+on:
+  workflow_dispatch: # This allows the workflow to be manually triggered from the GitHub UI
+
+env:
+  PROJECT_NUMBER: "585357613426"
+  SERVICE_ACCOUNT_EMAIL: "github-actions@hos-gov-dev.iam.gserviceaccount.com"
+  PROJECT_ID: "hos-gov-dev"
+  REGION: "us-west1"
+  DOCKER_IMAGE: "us-west1-docker.pkg.dev/hos-gov-dev/indexer/near-sink-service"
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    environment: 
+      name: hos-development
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud using OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{env.PROJECT_NUMBER}}/locations/global/workloadIdentityPools/github-identity-pool/providers/github
+          service_account: ${{env.SERVICE_ACCOUNT_EMAIL}}
+
+      - name: Configure gcloud
+        run: gcloud config set project ${{env.PROJECT_ID}}
+
+      - name: Login to Artifact Registry
+        run: gcloud auth configure-docker ${{env.REGION}}-docker.pkg.dev
+
+      - name: Build Docker image
+        run: docker build -t ${{env.DOCKER_IMAGE}} .
+
+      - name: Push Docker image to Artifact Registry
+        run: docker push ${{env.DOCKER_IMAGE}}
+
+      - name: Docker cleanup on VM
+        run: |
+          gcloud compute ssh indexer-vm \
+            --zone=${{env.REGION}}-a \
+            --project=${{env.PROJECT_ID}} \
+            --command="sudo docker system prune --all --force --volumes"
+
+      - name: Restart Compute Engine VM
+        run: |
+          gcloud compute instances reset indexer-vm \
+            --zone=${{env.REGION}}-a \
+            --project=${{env.PROJECT_ID}}
