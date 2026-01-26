@@ -158,7 +158,7 @@ impl Processor {
                                     chunk_hash: chunk_hash.clone(),
                                     author: block_author.clone(),
                                     method_name: method_name.clone(),
-                                    gas: *gas as i64,
+                                    gas: gas.as_gas() as i64,
                                     deposit: deposit.to_string(),
                                     args_base64,
                                     args_json,
@@ -178,8 +178,8 @@ impl Processor {
                         .collect();
 
                     // Parse tokens_burnt as f64
-                    let tokens_burnt = outcome.tokens_burnt as f64 / 1e24; // Convert from yoctoNEAR to NEAR
-                    let gas_used = outcome.gas_burnt as f64; // Gas used is the same as gas burnt for most cases
+                    let tokens_burnt = outcome.tokens_burnt.as_yoctonear() as f64 / 1e24; // Convert from yoctoNEAR to NEAR
+                    let gas_used = outcome.gas_burnt.as_gas() as f64; // Gas used is the same as gas burnt for most cases
 
                     // Extract only the status variant name without inner data
                     let status = match &outcome.status {
@@ -198,7 +198,7 @@ impl Processor {
                         block_hash: block_hash.clone(),
                         chunk_hash: chunk_hash.clone(),
                         shard_id: shard_id.clone(),
-                        gas_burnt: outcome.gas_burnt as i64,
+                        gas_burnt: outcome.gas_burnt.as_gas() as i64,
                         gas_used,
                         tokens_burnt,
                         executor_account_id: outcome.executor_id.to_string(),
