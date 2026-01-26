@@ -1,5 +1,5 @@
 # Use Rust slim image
-FROM rust:1.86-slim
+FROM rust:1.88-slim
 
 # Install all dependencies (build + runtime + gcloud CLI)
 RUN apt-get update && apt-get install -y \
