@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 # FastNEAR dependencies
-fastnear-neardata-fetcher = "0.30.1"
-fastnear-primitives = "0.30.1"
+fastnear-neardata-fetcher = "0.34.2"
+fastnear-primitives = "0.34.2"
 
 # Async runtime
 tokio = { version = "1.37", features = ["full"] }
