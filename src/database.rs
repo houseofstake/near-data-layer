@@ -415,7 +415,7 @@ impl Database {
     }
 
     pub async fn store_block(&self, block: &BlockWithTxHashes) -> Result<()> {
-        let start_time = std::time::Instant::now();
+        let _start_time = std::time::Instant::now();
         
         let header = &block.block.header;
         // Convert timestamp from nanoseconds to DateTime<Utc>
@@ -469,7 +469,7 @@ impl Database {
         &self,
         actions: Vec<ReceiptActionRow>,
     ) -> Result<()> {
-        let start_time = std::time::Instant::now();
+        let _start_time = std::time::Instant::now();
         
         for action in actions {
             let query = Self::store_receipt_action_query(&action);
@@ -499,7 +499,7 @@ impl Database {
         &self,
         outcomes: Vec<ExecutionOutcomeRow>,
     ) -> Result<()> {
-        let start_time = std::time::Instant::now();
+        let _start_time = std::time::Instant::now();
         
         for outcome in outcomes {
             let query = Self::store_execution_outcome_query(&outcome);
