@@ -78,6 +78,7 @@ impl Indexer {
 
         let fetcher_config = fetcher::FetcherConfig {
             num_threads: self.settings.num_threads,
+            num_lookahead_threads: self.settings.num_threads,
             start_block_height: Some(BlockHeight::try_from(start_block_height).unwrap()),
             end_block_height: None,
             chain_id,
@@ -89,6 +90,7 @@ impl Indexer {
             user_agent: None,
         };
 
+        
         // Create channel for receiving blocks
         let (sender, receiver) = mpsc::channel(1000);
 
