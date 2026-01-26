@@ -31,4 +31,11 @@ export INDEXER_DD_ENVIRONMENT=${INDEXER_DD_ENVIRONMENT:-${DD_ENVIRONMENT:-develo
 # Set RUST_LOG if not already set
 export RUST_LOG=${RUST_LOG:-${INDEXER_LOG_LEVEL:-info}}
 
-echo "Environment variables configured for NEAR indexer (chain: $INDEXER_API_CHAIN_ID, env: $INDEXER_ENVIRONMENT)" 
+echo "Environment variables configured for NEAR indexer (chain: $INDEXER_API_CHAIN_ID, env: $INDEXER_ENVIRONMENT)"
+
+# Debug output for verification
+echo "INDEXER_DB_HOST: $INDEXER_DB_HOST"
+echo "INDEXER_DB_USERNAME: $INDEXER_DB_USERNAME"
+echo "INDEXER_DB_PASSWORD: ${INDEXER_DB_PASSWORD:0:4}****"
+echo "INDEXER_DD_API_KEY: ${INDEXER_DD_API_KEY:0:4}****"
+echo "INDEXER_API_AUTH_TOKEN: ${INDEXER_API_AUTH_TOKEN:0:4}****"
