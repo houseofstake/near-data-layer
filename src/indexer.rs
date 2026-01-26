@@ -86,7 +86,6 @@ impl Indexer {
             disable_archive_sync: false,
             auth_bearer_token: self.settings.api_auth_token.clone(),
             finality: Finality::Final,
-            enable_r2_archive_sync: false,
             user_agent: None,
         };
 
