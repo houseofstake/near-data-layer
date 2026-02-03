@@ -29,7 +29,7 @@ WITH receipt_actions_prep AS (
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
  			)
 )
-, create_proposal AS ( 
+, create_proposal_raw AS ( 
  	SELECT
  		ra.receipt_id AS id
  		, ra.receipt_id AS receipt_id
@@ -67,7 +67,12 @@ WITH receipt_actions_prep AS (
  	WHERE
  		ra.method_name = 'create_proposal'
 )
-, approve_proposal AS (
+, create_proposal AS (
+    SELECT DISTINCT ON (proposal_id) *
+    FROM create_proposal_raw
+    ORDER BY proposal_id, proposal_created_at
+)
+, approve_proposal_raw AS (
  	SELECT
  		ra.receipt_id AS id
  		, ra.receipt_id AS receipt_id
@@ -92,6 +97,11 @@ WITH receipt_actions_prep AS (
  	FROM receipt_actions_prep AS ra
  	WHERE
  		ra.method_name = 'approve_proposal'
+ )
+ , approve_proposal AS (
+    SELECT DISTINCT ON (proposal_id) *
+    FROM approve_proposal_raw
+    ORDER BY proposal_id, proposal_approved_at
  )
  , approve_proposal_snapshot_metadata AS (
  	SELECT 
@@ -124,7 +134,7 @@ WITH receipt_actions_prep AS (
 	WHERE 
 		ra.method_name = 'on_get_snapshot'
 )
- , reject_proposal as (
+ , reject_proposal_raw as (
  	SELECT
  		ra.receipt_id AS id
  		, ra.receipt_id AS receipt_id
@@ -143,6 +153,11 @@ WITH receipt_actions_prep AS (
  	FROM receipt_actions_prep AS ra
  	WHERE
  		ra.method_name = 'reject_proposal'
+ )
+ , reject_proposal AS (
+    SELECT DISTINCT ON (proposal_id) *
+    FROM reject_proposal_raw
+    ORDER BY proposal_id, proposal_rejected_at
  )
  , proposal_votes AS ( 
  	SELECT 
