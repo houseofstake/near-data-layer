@@ -214,10 +214,11 @@ WITH receipt_actions_prep AS (
 	, cp.block_hash 
 
  FROM create_proposal AS cp
- LEFT JOIN approve_proposal ap
- 	ON cp.proposal_id = ap.proposal_id
  LEFT JOIN approve_proposal_snapshot_metadata AS aps
  	ON cp.proposal_id = aps.proposal_id 
+ LEFT JOIN approve_proposal ap
+ 	ON cp.proposal_id = ap.proposal_id
+    AND ap.receipt_id = aps.approve_proposal_receipt_id 
  LEFT JOIN reject_proposal AS rp 
  	ON cp.proposal_id = rp.proposal_id 
  LEFT JOIN proposal_votes AS pv 
