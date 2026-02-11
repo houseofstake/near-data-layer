@@ -142,31 +142,49 @@ receipt_actions_prep AS (
   ------- When a user leverages the NEAR CLI to register to vote, the receipt_ids for these events are different (rare scenario). 
 , registered_voters_prep AS (
   	SELECT
-		rv.*
-		, vpvr.voting_power_from_vote_registration AS voting_power_from_vote_registrations
+		id
+		, receipt_id
+		, receiver_id
+		, signer_account_id
+		, predecessor_id
+		, method_name
+		, block_timestamp
+		, block_height
+		, block_hash
+        , registered_at_ns
+        , registered_voter_id
+        , is_remove_dupe
+		, voting_power_from_vote_registrations
 	FROM (
-		SELECT 
-			ra.*
-    		, (EXTRACT(EPOCH FROM ra.block_timestamp) * 1e9)::BIGINT AS registered_at_ns 
-			, COALESCE(
-    				CASE 
- 		     			WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		   	 			THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		     			ELSE NULL END
-						, ra.signer_account_id
-		  			) AS registered_voter_id
-    		, CASE 
-				WHEN safe_json_parse(ra.action_logs[1])->>'original_text' = 'The account is already registered, refunding the deposit'
-				THEN 1 ELSE 0 
-				END AS is_remove_dupe 
-		FROM receipt_actions_prep AS ra 
-		WHERE 
-			ra.method_name = 'deploy_lockup'
-		) AS rv	
-	INNER JOIN voting_power_from_vote_registration AS vpvr 
-		ON rv.registered_voter_id = vpvr.registered_voter_id 
-  	WHERE
-    	rv.is_remove_dupe = 0
+		SELECT
+			rv.*
+			, vpvr.voting_power_from_vote_registration AS voting_power_from_vote_registrations
+            , ROW_NUMBER() OVER (PARTITION BY rv.registered_voter_id ORDER BY rv.block_timestamp ASC, rv.receipt_id ASC) as rn
+		FROM (
+			SELECT 
+				ra.*
+	    		, (EXTRACT(EPOCH FROM ra.block_timestamp) * 1e9)::BIGINT AS registered_at_ns 
+				, COALESCE(
+	    				CASE 
+	 		     			WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+	 		   	 			THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+	 		     			ELSE NULL END
+							, ra.signer_account_id
+			  			) AS registered_voter_id
+	    		, CASE 
+					WHEN safe_json_parse(ra.action_logs[1])->>'original_text' = 'The account is already registered, refunding the deposit'
+					THEN 1 ELSE 0 
+					END AS is_remove_dupe 
+			FROM receipt_actions_prep AS ra 
+			WHERE 
+				ra.method_name = 'deploy_lockup'
+			) AS rv	
+		INNER JOIN voting_power_from_vote_registration AS vpvr 
+			ON rv.registered_voter_id = vpvr.registered_voter_id 
+	  	WHERE
+	    	rv.is_remove_dupe = 0
+    ) sub
+    WHERE rn = 1
 )
 --------------------------------------
 --PROPOSAL PARTICIPATION CALCULATION--
