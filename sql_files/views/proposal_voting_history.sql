@@ -98,13 +98,20 @@ WITH receipt_actions_prep AS (
  		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->'v_account'->'V0'->'delegated_balance'->>'near_balance')::NUMERIC
  		    ELSE NULL 
  		    END AS delegated_near_balance
-		, CASE 
+		, CASE
  		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
  		    THEN (safe_json_parse(convert_from(ra.args, 'UTF8'))->'v_account'->'V0'->'delegated_balance'->>'extra_venear_balance')::NUMERIC
- 		    ELSE NULL 
+ 		    ELSE NULL
  		    END AS delegated_extra_venear_balance
-	
-		--Logs 
+
+		--Memo
+		, CASE
+ 		    WHEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(convert_from(ra.args, 'UTF8'))->>'__memo'
+ 		    ELSE NULL
+ 		    END AS memo
+
+		--Logs
 		, ra.logs
 	
 		--Block Data 
@@ -144,8 +151,9 @@ SELECT
 	, l.extra_venear_balance 
 	, l.delegator_account_id 
 	, l.delegated_near_balance 
-	, l.delegated_extra_venear_balance 
-	, l.block_height 
+	, l.delegated_extra_venear_balance
+	, l.memo
+	, l.block_height
 	, l.block_hash
 FROM latest_vote_per_proposal_and_voter AS l
 LEFT JOIN proposal_metadata AS pm 
