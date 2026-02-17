@@ -108,28 +108,31 @@ receipt_actions_prep AS (
       , vplu_prep.voting_power_from_locks_unlocks
       , vplu_prep.lockup_update_at_ns
   FROM (
-  	SELECT 
-    		rap.block_timestamp
-    		, rap.receipt_id
-    		, CASE
-        			WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
-        			THEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'account_id')
-        			ELSE NULL
-        			END AS registered_voter_id
-    		, CASE
-    			WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
-       			THEN ((safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'locked_near_balance'))::NUMERIC
-       			ELSE NULL
-      			END AS voting_power_from_locks_unlocks
-    		, CASE
-       			WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
-       			THEN ((safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'timestamp'))::NUMERIC
-       			ELSE NULL
-      			END AS lockup_update_at_ns
-  		FROM receipt_actions_prep AS rap
-  		WHERE
-      		rap.method_name = 'on_lockup_update' 
-	) AS vplu_prep
+      SELECT
+        rap.block_timestamp
+        , rap.receipt_id
+        , COALESCE(
+            CASE
+                WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
+                THEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'account_id')
+                ELSE NULL
+                END,
+                rap.signer_account_id
+            ) AS registered_voter_id
+        , CASE
+            WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
+            THEN ((safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'locked_near_balance'))::NUMERIC
+            ELSE NULL
+            END AS voting_power_from_locks_unlocks
+        , CASE
+            WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
+            THEN ((safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'timestamp'))::NUMERIC
+            ELSE NULL
+            END AS lockup_update_at_ns
+      FROM receipt_actions_prep AS rap
+      WHERE
+          rap.method_name = 'on_lockup_update'
+  ) AS vplu_prep
   ORDER BY
       vplu_prep.registered_voter_id
       , vplu_prep.block_timestamp DESC
