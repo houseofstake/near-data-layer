@@ -1,6 +1,6 @@
 /*
  Primary key on this table is receipt_id. 
- Every single row in this table is a unique, successful deploy_lockup action, which translates into a voter registration action.
+ Every row represents the first successful on_lockup_deployed registration callback for a voter.
  ("Successful" is defined by pulling only receipt_ids flagged as successful from the execution_outcomes table.)
  
  In this view, each row is associated with: 
@@ -9,8 +9,8 @@
    3. Boolean flag indicating whether registered voter is currently delegating their NEAR   (Sourced from the fastnear.delegation_events view)
    4. A delegatee ID                                                                        (The account to which the registered voter has delegated their entire NEAR balance, NULL if the voter has not delegated their balance)
    5. The related House of Stake Contract                                                   (veNEAR contract address, v.voteagora.near)
-   6. The registerd voter's current voting power                                            (Calculated via aggregating the voting power from initial vote registration, the user's latest lock or unlock action, any delegated balances, and accrued rewards aka extra venear earned)  
-   7. The registered voter's initial voting power, aka voting power from vote registration  (Sourced from the storage_deposit event that is emitted upon a user's vote registration action) 
+   6. The registered voter's current voting power                                           (Calculated via aggregating the voting power from initial vote registration, the user's latest lock or unlock action, any delegated balances, and accrued rewards aka extra venear earned)  
+   7. The registered voter's initial voting power, aka voting power from vote registration  (Sourced from storage_deposit event logs) 
    8. the registered voter's voting power from locks and unlocks                            (Sourced from the latest on_lockup_update event that is emitted upon a user's latest lock or unlock action)
    9. The registered voter's principal balance                                              (Calculated as the sum of a user's initial voting power and their voting power from locks or unlocks) 
    10. The extra venear earned on a principal balance 										(The voting power a registered voter earns from it's principal NEAR balance, calculated using an APY growth rate sourced from the contract upon contract definition) 
@@ -18,7 +18,7 @@
    12. The extra venear earned on a delegated balance                                       (Equivalent to the extra venear earned on principal for the associated delegator account) 
    13. The registered voter's proposal participation rate                                   (Calculated as a count of the vote_options - only considering the latest vote_option per proposal - a user makes on any of the 10 most recently approved proposals for the veNEAR contract, always a percentage out of 10)
    14. The timestamp at which the voter registration action occurred 
-   15. The block-related data for this deploy_lockup action                                 (Block hash or id, block height) 
+   15. The block-related data for this voter registration action                            (Block hash or id, block height) 
 */
 
 
@@ -48,7 +48,7 @@ receipt_actions_prep AS (
 		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
 	WHERE
 		ra.action_kind = 'FunctionCall'
-		AND ra.method_name IN ('new', 'storage_deposit', 'on_lockup_update', 'deploy_lockup')
+		AND ra.method_name IN ('new', 'storage_deposit', 'on_lockup_update', 'on_lockup_deployed')
         AND ra.receiver_id IN (    	                    ---House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
@@ -73,31 +73,48 @@ receipt_actions_prep AS (
     	ra.method_name = 'new'
 
 )
+, on_lockup_deployed_receipts AS (
+	SELECT DISTINCT ON (ra.receipt_id)
+		ra.*
+	FROM receipt_actions_prep AS ra
+	WHERE
+		ra.method_name = 'on_lockup_deployed'
+	ORDER BY
+		ra.receipt_id
+		, ra.block_timestamp DESC
+		, ra.id DESC
+)
 /* Sourcing Voting Power from Vote Registration */
+, storage_deposit_events AS (
+	SELECT
+		ra.block_timestamp
+		, ra.receipt_id
+		, COALESCE(
+			CASE
+				WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+				THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+				ELSE NULL
+			END
+			, ra.signer_account_id
+		) AS registered_voter_id
+		, CASE
+			WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+			THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+			ELSE NULL
+		END AS voting_power_from_vote_registration
+	FROM receipt_actions_prep AS ra
+	WHERE
+		ra.method_name = 'storage_deposit'
+)
 , voting_power_from_vote_registration AS (
-	SELECT vpvr.*
-	FROM (
-  			SELECT
-  				ra.block_timestamp
-    			, ra.receipt_id
-    			, COALESCE(
-    				CASE 
- 		     			WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		   	 			THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		     			ELSE NULL END
-						, ra.signer_account_id
-		  			) AS registered_voter_id
-    			, CASE 
- 		    		WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    		THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
- 		    		ELSE NULL 
- 		    		END AS voting_power_from_vote_registration
-  			FROM receipt_actions_prep AS ra
-  			WHERE
-    			ra.method_name = 'storage_deposit'
-    	) AS vpvr
-    WHERE 
-    	vpvr.voting_power_from_vote_registration IS NOT NULL 
+	SELECT
+		sd.block_timestamp
+		, sd.receipt_id
+		, sd.registered_voter_id
+		, sd.voting_power_from_vote_registration
+	FROM storage_deposit_events AS sd
+	WHERE
+		sd.voting_power_from_vote_registration IS NOT NULL
 )
 /* Sourcing Latest Voting Power from Locks + Unlocks */ 
 , voting_power_from_locks_unlocks AS (
@@ -135,38 +152,52 @@ receipt_actions_prep AS (
       , vplu_prep.block_timestamp DESC
       , vplu_prep.receipt_id DESC
 )
-/* Sourcing Registered Voters from Deploy Lockup Event (Excluding dupes due to account already being registered) */
-  --Whenever a user registers to vote, there should always be a non-null storage deposit, aka, initial voting power amount.
-  --is_remove_dupe flag excludes scenarios where a vote registration action (aka deploy_lockup for a given user) is duped bc the user's account was already registered and the subsequent storage_deposit event tracks a null initial_voting_power amount.
-  --NOTE: When a user leverages the web app to register to vote, the storage_deposit and deploy_lockup event for their account_id will share the same receipt_id. 
-  ------- When a user leverages the NEAR CLI to register to vote, the receipt_ids for these events are different (rare scenario). 
+/* Sourcing Registered Voters from on_lockup_deployed */
+, registration_receipts AS (
+	SELECT
+		ra.*
+		, (EXTRACT(EPOCH FROM ra.block_timestamp) * 1e9)::BIGINT AS registered_at_ns
+		, COALESCE(
+			CASE
+				WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+				THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
+				ELSE NULL
+			END
+			, CASE
+				WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+				THEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'account_id'
+				ELSE NULL
+			END
+			, ra.signer_account_id
+		) AS registered_voter_id
+	FROM on_lockup_deployed_receipts AS ra
+)
+, first_registration_receipts AS (
+	SELECT DISTINCT ON (rr.registered_voter_id)
+		rr.*
+	FROM registration_receipts AS rr
+	ORDER BY
+		rr.registered_voter_id
+		, rr.block_timestamp ASC
+		, rr.receipt_id ASC
+)
 , registered_voters_prep AS (
-  	SELECT
-		rv.*
-		, vpvr.voting_power_from_vote_registration AS voting_power_from_vote_registrations
-	FROM (
-		SELECT 
-			ra.*
-    		, (EXTRACT(EPOCH FROM ra.block_timestamp) * 1e9)::BIGINT AS registered_at_ns 
-			, COALESCE(
-    				CASE 
- 		     			WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
- 		   	 			THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		     			ELSE NULL END
-						, ra.signer_account_id
-		  			) AS registered_voter_id
-    		, CASE 
-				WHEN safe_json_parse(ra.action_logs[1])->>'original_text' = 'The account is already registered, refunding the deposit'
-				THEN 1 ELSE 0 
-				END AS is_remove_dupe 
-		FROM receipt_actions_prep AS ra 
-		WHERE 
-			ra.method_name = 'deploy_lockup'
-		) AS rv	
-	INNER JOIN voting_power_from_vote_registration AS vpvr 
-		ON rv.registered_voter_id = vpvr.registered_voter_id 
-  	WHERE
-    	rv.is_remove_dupe = 0
+	SELECT
+		rr.*
+		, sd_vpvr.voting_power_from_vote_registration AS voting_power_from_vote_registrations
+	FROM first_registration_receipts AS rr
+	INNER JOIN LATERAL (
+		SELECT
+			vpvr.voting_power_from_vote_registration
+		FROM voting_power_from_vote_registration AS vpvr
+		WHERE
+			vpvr.registered_voter_id = rr.registered_voter_id
+		ORDER BY
+			vpvr.block_timestamp ASC
+			, vpvr.receipt_id ASC
+		LIMIT 1
+	) AS sd_vpvr
+		ON TRUE
 )
 --------------------------------------
 --PROPOSAL PARTICIPATION CALCULATION--
@@ -180,7 +211,7 @@ receipt_actions_prep AS (
 )
 , registered_voter_proposal_voting_history AS (
 	SELECT 
-		rv.signer_account_id AS registered_voter_id
+		rv.registered_voter_id AS registered_voter_id
 		, pvh.proposal_id 
 		, CASE 
 			WHEN t.proposal_id IS NULL THEN 0 
@@ -188,7 +219,7 @@ receipt_actions_prep AS (
 			END AS is_proposal_from_ten_most_recently_approved 
 	FROM registered_voters_prep AS rv 
 	INNER JOIN {SCHEMA_NAME}.proposal_voting_history AS pvh 
-		ON rv.signer_account_id = pvh.voter_id
+		ON rv.registered_voter_id = pvh.voter_id
 	LEFT JOIN ten_most_recently_approved_proposals AS t
 		ON pvh.proposal_id = t.proposal_id
 )
@@ -233,13 +264,13 @@ receipt_actions_prep AS (
  		, COALESCE(vplu.voting_power_from_locks_unlocks, 0) 
  			+ COALESCE(ra.voting_power_from_vote_registrations, 0)  AS principal_balance 
 
-	FROM registered_voters_prep AS ra 					    --Sourced from the deploy_lockup event
+	FROM registered_voters_prep AS ra 					    --Sourced from the on_lockup_deployed event
 	LEFT JOIN venear_contract_growth_config AS gc           --Sourced from method_name = 'new', function call sets up the contract state when it is first deployed
         ON ra.receiver_id = gc.hos_contract_address 
 	LEFT JOIN voting_power_from_locks_unlocks AS vplu 	    --Sourced from the voter's most recent on_lockup_update event
-		ON ra.signer_account_id = vplu.registered_voter_id	
+		ON ra.registered_voter_id = vplu.registered_voter_id	
 	LEFT JOIN proposal_participation AS pp
-		ON ra.signer_account_id = pp.registered_voter_id 
+		ON ra.registered_voter_id = pp.registered_voter_id 
 	LEFT JOIN 
 			(
 			SELECT DISTINCT ON (delegator_id)
@@ -250,7 +281,7 @@ receipt_actions_prep AS (
 				, d.block_timestamp DESC
 				, d.receipt_id DESC
 			) AS de 
-	 	ON ra.signer_account_id = de.delegator_id 
+	 	ON ra.registered_voter_id = de.delegator_id 
 		AND de.is_latest_delegator_event = TRUE 
 		AND de.delegate_method = 'delegate_all'
 		AND de.delegate_event = 'ft_mint'
@@ -319,11 +350,11 @@ SELECT
 	 	     )
  	  	END AS current_voting_power
  	
- 	--Block Details (For the deploy_lockup - aka "vote registration" - action on the veNEAR HOS contract address)  	
+ 	--Block Details (For the vote registration action on the veNEAR HOS contract address)  	
  	, ra.block_height 
  	, ra.block_hash
 FROM voting_power_from_rewards AS ra
 LEFT JOIN delegated_voting_power AS dvp
-	ON ra.signer_account_id = dvp.delegatee_id
+	ON ra.registered_voter_id = dvp.delegatee_id
 ORDER BY ra.block_timestamp ASC
 ;
