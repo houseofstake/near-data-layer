@@ -240,17 +240,8 @@ receipt_actions_prep AS (
 		ON ra.signer_account_id = vplu.registered_voter_id	
 	LEFT JOIN proposal_participation AS pp
 		ON ra.signer_account_id = pp.registered_voter_id 
-	LEFT JOIN 
-			(
-			SELECT DISTINCT ON (delegator_id)
-				  d.* 
-			FROM {SCHEMA_NAME}.delegation_events AS d
-			ORDER BY 
-				d.delegator_id
-				, d.block_timestamp DESC
-				, d.receipt_id DESC
-			) AS de 
-	 	ON ra.signer_account_id = de.delegator_id 
+	LEFT JOIN {SCHEMA_NAME}.delegation_events AS de 
+	 	ON ra.registered_voter_id = de.delegator_id 
 		AND de.is_latest_delegator_event = TRUE 
 		AND de.delegate_method = 'delegate_all'
 		AND de.delegate_event = 'ft_mint'
