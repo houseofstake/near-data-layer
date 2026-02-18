@@ -99,16 +99,9 @@ receipt_actions_prep AS (
     WHERE 
     	vpvr.voting_power_from_vote_registration IS NOT NULL 
 )
-/* Sourcing Latest Voting Power from Locks + Unlocks */ 
-, voting_power_from_locks_unlocks AS (
-  SELECT DISTINCT ON (vplu_prep.registered_voter_id)
-      vplu_prep.block_timestamp
-      , vplu_prep.receipt_id
-      , vplu_prep.registered_voter_id
-      , vplu_prep.voting_power_from_locks_unlocks
-      , vplu_prep.lockup_update_at_ns
-  FROM (
-  	SELECT 
+/* All on_lockup_update events (shared base for latest-event lookup and accumulated rewards) */
+, all_lockup_events AS (
+  	SELECT
     		rap.block_timestamp
     		, rap.receipt_id
     		, CASE
@@ -128,12 +121,50 @@ receipt_actions_prep AS (
       			END AS lockup_update_at_ns
   		FROM receipt_actions_prep AS rap
   		WHERE
-      		rap.method_name = 'on_lockup_update' 
-	) AS vplu_prep
+      		rap.method_name = 'on_lockup_update'
+)
+/* Sourcing Latest Voting Power from Locks + Unlocks (latest event per account for current locked balance) */
+, voting_power_from_locks_unlocks AS (
+  SELECT DISTINCT ON (ale.registered_voter_id)
+      ale.block_timestamp
+      , ale.receipt_id
+      , ale.registered_voter_id
+      , ale.voting_power_from_locks_unlocks
+      , ale.lockup_update_at_ns
+  FROM all_lockup_events AS ale
   ORDER BY
-      vplu_prep.registered_voter_id
-      , vplu_prep.block_timestamp DESC
-      , vplu_prep.receipt_id DESC
+      ale.registered_voter_id
+      , ale.block_timestamp DESC
+      , ale.receipt_id DESC
+)
+/* Accumulating rewards across all lockup periods (not just the latest) */
+, all_lockup_periods AS (
+  SELECT
+      ale.registered_voter_id
+      , ale.voting_power_from_locks_unlocks AS locked_near_balance
+      , ale.lockup_update_at_ns
+      , LEAD(ale.lockup_update_at_ns) OVER (
+          PARTITION BY ale.registered_voter_id
+          ORDER BY ale.block_timestamp ASC, ale.receipt_id ASC
+        ) AS next_lockup_update_at_ns
+  FROM all_lockup_events AS ale
+)
+, accumulated_lockup_rewards AS (
+  SELECT
+      alp.registered_voter_id
+      , SUM(
+          ( FLOOR((alp.locked_near_balance + COALESCE(vpvr.voting_power_from_vote_registration, 0)) / 1e21) * 1e21 )
+          * ( gc.growth_rate_numerator_ns / gc.growth_rate_denominator_ns )
+          * (
+              ( FLOOR(COALESCE(alp.next_lockup_update_at_ns, (EXTRACT(EPOCH FROM NOW()) * 1e9)::NUMERIC) / 1e9) * 1e9 )
+              - ( FLOOR(alp.lockup_update_at_ns / 1e9) * 1e9 )
+            )
+        ) AS accumulated_extra_venear_on_principal
+  FROM all_lockup_periods AS alp
+  INNER JOIN voting_power_from_vote_registration AS vpvr
+      ON alp.registered_voter_id = vpvr.registered_voter_id
+  CROSS JOIN venear_contract_growth_config AS gc
+  GROUP BY alp.registered_voter_id
 )
 /* Sourcing Registered Voters from Deploy Lockup Event (Excluding dupes due to account already being registered) */
   --Whenever a user registers to vote, there should always be a non-null storage deposit, aka, initial voting power amount.
@@ -224,34 +255,39 @@ receipt_actions_prep AS (
  		--Voting Power from Rewards - Calculation Variables
  		, gc.growth_rate_numerator_ns
  		, gc.growth_rate_denominator_ns
- 		, (EXTRACT(EPOCH FROM NOW()) * 1e9)::NUMERIC 				AS now_ns 
- 		, vplu.lockup_update_at_ns 									AS latest_lockup_update_at_ns 
+ 		, (EXTRACT(EPOCH FROM NOW()) * 1e9)::NUMERIC 				AS now_ns
+ 		, vplu.lockup_update_at_ns 									AS latest_lockup_update_at_ns
 
  		--Voting Powers
-		, COALESCE(vplu.voting_power_from_locks_unlocks, 0)     	AS voting_power_from_locks_unlocks 
+		, COALESCE(vplu.voting_power_from_locks_unlocks, 0)     	AS voting_power_from_locks_unlocks
  		, COALESCE(ra.voting_power_from_vote_registrations, 0) 	    AS voting_power_from_vote_registration --aka initial voting power, as a registered voter
- 		, COALESCE(vplu.voting_power_from_locks_unlocks, 0) 
- 			+ COALESCE(ra.voting_power_from_vote_registrations, 0)  AS principal_balance 
+ 		, COALESCE(vplu.voting_power_from_locks_unlocks, 0)
+ 			+ COALESCE(ra.voting_power_from_vote_registrations, 0)  AS principal_balance
+
+		--Accumulated rewards across all lockup periods
+		, alr.accumulated_extra_venear_on_principal
 
 	FROM registered_voters_prep AS ra 					    --Sourced from the deploy_lockup event
 	LEFT JOIN venear_contract_growth_config AS gc           --Sourced from method_name = 'new', function call sets up the contract state when it is first deployed
-        ON ra.receiver_id = gc.hos_contract_address 
+        ON ra.receiver_id = gc.hos_contract_address
 	LEFT JOIN voting_power_from_locks_unlocks AS vplu 	    --Sourced from the voter's most recent on_lockup_update event
-		ON ra.signer_account_id = vplu.registered_voter_id	
+		ON ra.signer_account_id = vplu.registered_voter_id
+	LEFT JOIN accumulated_lockup_rewards AS alr             --Rewards accumulated across ALL lockup periods (not just the latest)
+		ON ra.signer_account_id = alr.registered_voter_id
 	LEFT JOIN proposal_participation AS pp
-		ON ra.signer_account_id = pp.registered_voter_id 
-	LEFT JOIN 
+		ON ra.signer_account_id = pp.registered_voter_id
+	LEFT JOIN
 			(
 			SELECT DISTINCT ON (delegator_id)
-				  d.* 
+				  d.*
 			FROM {SCHEMA_NAME}.delegation_events AS d
-			ORDER BY 
+			ORDER BY
 				d.delegator_id
 				, d.block_timestamp DESC
 				, d.receipt_id DESC
-			) AS de 
-	 	ON ra.signer_account_id = de.delegator_id 
-		AND de.is_latest_delegator_event = TRUE 
+			) AS de
+	 	ON ra.signer_account_id = de.delegator_id
+		AND de.is_latest_delegator_event = TRUE
 		AND de.delegate_method = 'delegate_all'
 		AND de.delegate_event = 'ft_mint'
 )
@@ -263,15 +299,14 @@ receipt_actions_prep AS (
 		tj.* 
 		
 		--Calculating Voting Power from Rewards
-		, CASE 
+		--When a user has lockup events, use accumulated rewards across ALL lockup periods.
+		--When a user has no lockup events, compute rewards from registration timestamp (original behavior).
+		, CASE
     		WHEN has_locked_unlocked_near = TRUE
-    		THEN 
-    			( (FLOOR(principal_balance/1e21)*1e21)  )
-    	  	  * ( growth_rate_numerator_ns / growth_rate_denominator_ns ) 
-    	      * ( (FLOOR(now_ns/1e9)*1e9) - (FLOOR(latest_lockup_update_at_ns/1e9)*1e9) )
-    		ELSE 
+    		THEN COALESCE(accumulated_extra_venear_on_principal, 0)
+    		ELSE
     			( (FLOOR(principal_balance/1e21)*1e21) )
-    	  	  * ( growth_rate_numerator_ns / growth_rate_denominator_ns ) 
+    	  	  * ( growth_rate_numerator_ns / growth_rate_denominator_ns )
     	  	  * ( (FLOOR(now_ns/1e9)*1e9) - (FLOOR(registered_at_ns/1e9)*1e9) ) --If a user has not had any locks or unlocks, we use the timestamp of when they registered to vote
     		END AS extra_venear_on_principal
     		
