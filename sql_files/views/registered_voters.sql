@@ -69,245 +69,205 @@ receipt_actions_prep AS (
             ELSE NULL
             END AS growth_rate_denominator_ns
     FROM receipt_actions_prep AS ra
-    WHERE 
-    	ra.method_name = 'new'
-
-)
-, on_lockup_deployed_receipts AS (
-	SELECT DISTINCT ON (ra.receipt_id)
-		ra.*
-	FROM receipt_actions_prep AS ra
-	WHERE
-		ra.method_name = 'on_lockup_deployed'
-	ORDER BY
-		ra.receipt_id
-		, ra.block_timestamp DESC
-		, ra.id DESC
-)
-/* Sourcing Voting Power from Vote Registration */
-, storage_deposit_events AS (
-	SELECT
-		ra.block_timestamp
-		, ra.receipt_id
-		, COALESCE(
-			CASE
-				WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
-				THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
-				ELSE NULL
-			END
-			, ra.signer_account_id
-		) AS registered_voter_id
-		, CASE
-			WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
-			THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
-			ELSE NULL
-		END AS voting_power_from_vote_registration
-	FROM receipt_actions_prep AS ra
-	WHERE
-		ra.method_name = 'storage_deposit'
-)
-, voting_power_from_vote_registration AS (
-	SELECT
-		sd.block_timestamp
-		, sd.receipt_id
-		, sd.registered_voter_id
-		, sd.voting_power_from_vote_registration
-	FROM storage_deposit_events AS sd
-	WHERE
-		sd.voting_power_from_vote_registration IS NOT NULL
-)
-/* Sourcing Latest Voting Power from Locks + Unlocks */ 
-, voting_power_from_locks_unlocks AS (
-  SELECT DISTINCT ON (vplu_prep.registered_voter_id)
-      vplu_prep.block_timestamp
-      , vplu_prep.receipt_id
-      , vplu_prep.registered_voter_id
-      , vplu_prep.voting_power_from_locks_unlocks
-      , vplu_prep.lockup_update_at_ns
-  FROM (
-  	SELECT 
-    		rap.block_timestamp
-    		, rap.receipt_id
-    		, CASE
-        			WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
-        			THEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'account_id')
-        			ELSE NULL
-        			END AS registered_voter_id
-    		, CASE
-    			WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
-       			THEN ((safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'locked_near_balance'))::NUMERIC
-       			ELSE NULL
-      			END AS voting_power_from_locks_unlocks
-    		, CASE
-       			WHEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) ->> 'error') IS NULL
-       			THEN ((safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', '')) -> 'data' -> 0 ->> 'timestamp'))::NUMERIC
-       			ELSE NULL
-      			END AS lockup_update_at_ns
-  		FROM receipt_actions_prep AS rap
-  		WHERE
-      		rap.method_name = 'on_lockup_update' 
-	) AS vplu_prep
-  ORDER BY
-      vplu_prep.registered_voter_id
-      , vplu_prep.block_timestamp DESC
-      , vplu_prep.receipt_id DESC
-)
-/* Sourcing Registered Voters from on_lockup_deployed */
-, registration_receipts AS (
-	SELECT
-		ra.*
-		, (EXTRACT(EPOCH FROM ra.block_timestamp) * 1e9)::BIGINT AS registered_at_ns
-		, COALESCE(
-			CASE
-				WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
-				THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
-				ELSE NULL
-			END
-			, CASE
-				WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
-				THEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'account_id'
-				ELSE NULL
-			END
-			, ra.signer_account_id
-		) AS registered_voter_id
-	FROM on_lockup_deployed_receipts AS ra
-)
-, first_registration_receipts AS (
-	SELECT DISTINCT ON (rr.registered_voter_id)
-		rr.*
-	FROM registration_receipts AS rr
-	ORDER BY
-		rr.registered_voter_id
-		, rr.block_timestamp ASC
-		, rr.receipt_id ASC
-)
-, registered_voters_prep AS (
-	SELECT
-		rr.*
-		, sd_vpvr.voting_power_from_vote_registration AS voting_power_from_vote_registrations
-	FROM first_registration_receipts AS rr
-	INNER JOIN LATERAL (
-		SELECT
-			vpvr.voting_power_from_vote_registration
-		FROM voting_power_from_vote_registration AS vpvr
-		WHERE
-			vpvr.registered_voter_id = rr.registered_voter_id
-		ORDER BY
-			vpvr.block_timestamp ASC
-			, vpvr.receipt_id ASC
-		LIMIT 1
-	) AS sd_vpvr
-		ON TRUE
-)
---------------------------------------
---PROPOSAL PARTICIPATION CALCULATION--
---------------------------------------
-/* VI. Sourcing Proposal Participation (from 10 most recently approved proposals) */
-, ten_most_recently_approved_proposals AS (
-	SELECT proposal_id
-	FROM {SCHEMA_NAME}.approved_proposals
-	ORDER BY proposal_approved_at DESC
-	LIMIT 10
-)
-, registered_voter_proposal_voting_history AS (
-	SELECT 
-		rv.registered_voter_id AS registered_voter_id
-		, pvh.proposal_id 
-		, CASE 
-			WHEN t.proposal_id IS NULL THEN 0 
-			ELSE 1 
-			END AS is_proposal_from_ten_most_recently_approved 
-	FROM registered_voters_prep AS rv 
-	INNER JOIN {SCHEMA_NAME}.proposal_voting_history AS pvh 
-		ON rv.registered_voter_id = pvh.voter_id
-	LEFT JOIN ten_most_recently_approved_proposals AS t
-		ON pvh.proposal_id = t.proposal_id
-)
-, proposal_participation AS (
-	SELECT
-		registered_voter_id
-		, SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC AS num_recently_approved_proposals_voted_on
-		, SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC / 10 AS proposal_participation_rate 
-	FROM registered_voter_proposal_voting_history
-	GROUP BY 1
-)
-------------------------------------------
---REGISTERED VOTERS + BASIC VOTING POWER--
-------------------------------------------
-, table_joins AS (
-	SELECT
-		ra.*
-		
-		--New Field Additions
- 		, CASE
-	 		WHEN vplu.registered_voter_id IS NULL THEN FALSE
-	 		ELSE TRUE
-	 		END AS has_locked_unlocked_near
-	 		
-		, CASE 
- 			WHEN de.delegator_id IS NULL THEN FALSE 
- 			ELSE TRUE 
- 			END AS is_actively_delegating 
- 			
- 		, de.delegatee_id
- 		, pp.proposal_participation_rate
- 		
- 		--Voting Power from Rewards - Calculation Variables
- 		, gc.growth_rate_numerator_ns
- 		, gc.growth_rate_denominator_ns
- 		, (EXTRACT(EPOCH FROM NOW()) * 1e9)::NUMERIC 				AS now_ns 
- 		, vplu.lockup_update_at_ns 									AS latest_lockup_update_at_ns 
-
- 		--Voting Powers
-		, COALESCE(vplu.voting_power_from_locks_unlocks, 0)     	AS voting_power_from_locks_unlocks 
- 		, COALESCE(ra.voting_power_from_vote_registrations, 0) 	    AS voting_power_from_vote_registration --aka initial voting power, as a registered voter
- 		, COALESCE(vplu.voting_power_from_locks_unlocks, 0) 
- 			+ COALESCE(ra.voting_power_from_vote_registrations, 0)  AS principal_balance 
-
-	FROM registered_voters_prep AS ra 					    --Sourced from the on_lockup_deployed event
-	LEFT JOIN venear_contract_growth_config AS gc           --Sourced from method_name = 'new', function call sets up the contract state when it is first deployed
-        ON ra.receiver_id = gc.hos_contract_address 
-	LEFT JOIN voting_power_from_locks_unlocks AS vplu 	    --Sourced from the voter's most recent on_lockup_update event
-		ON ra.registered_voter_id = vplu.registered_voter_id	
-	LEFT JOIN proposal_participation AS pp
-		ON ra.registered_voter_id = pp.registered_voter_id 
-	LEFT JOIN {SCHEMA_NAME}.delegation_events AS de 
-	 	ON ra.registered_voter_id = de.delegator_id 
-		AND de.is_latest_delegator_event = TRUE 
-		AND de.delegate_method = 'delegate_all'
-		AND de.delegate_event = 'ft_mint'
-)
------------------------------------------
---CALCULATING VOTING POWER FROM REWARDS--
------------------------------------------
-, voting_power_from_rewards AS (
-	SELECT 
-		tj.* 
-		
-		--Calculating Voting Power from Rewards
-		, CASE 
-    		WHEN has_locked_unlocked_near = TRUE
-    		THEN 
-    			( (FLOOR(principal_balance/1e21)*1e21)  )
-    	  	  * ( growth_rate_numerator_ns / growth_rate_denominator_ns ) 
-    	      * ( (FLOOR(now_ns/1e9)*1e9) - (FLOOR(latest_lockup_update_at_ns/1e9)*1e9) )
-    		ELSE 
-    			( (FLOOR(principal_balance/1e21)*1e21) )
-    	  	  * ( growth_rate_numerator_ns / growth_rate_denominator_ns ) 
-    	  	  * ( (FLOOR(now_ns/1e9)*1e9) - (FLOOR(registered_at_ns/1e9)*1e9) ) --If a user has not had any locks or unlocks, we use the timestamp of when they registered to vote
-    		END AS extra_venear_on_principal
-    		
-	FROM table_joins AS tj 
-)
-, delegated_voting_power AS (
-	SELECT 
-		delegatee_id 
-		, SUM(principal_balance) 		 AS delegated_balance 
-		, SUM(extra_venear_on_principal) AS delegated_extra_venear
-	FROM voting_power_from_rewards
-	WHERE 
-		delegatee_id IS NOT NULL -- Optimization: Filter NULLs early
-	GROUP BY 1 
+    WHERE ra.method_name = 'new'
+    ORDER BY ra.signer_account_id, ra.block_timestamp ASC, ra.receipt_id ASC
+),
+registration_callbacks_by_receipt AS (
+    SELECT
+        ra.id,
+        ra.receipt_id,
+        ra.receiver_id,
+        ra.predecessor_id,
+        ra.method_name,
+        ra.block_timestamp,
+        ra.block_height,
+        ra.block_hash,
+        COALESCE(
+            CASE
+                WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+                THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
+                ELSE NULL
+            END,
+            CASE
+                WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+                THEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'account_id'
+                ELSE NULL
+            END
+        ) AS registered_voter_id,
+        (EXTRACT(EPOCH FROM ra.block_timestamp) * 1e9)::BIGINT AS registered_at_ns
+    FROM receipt_actions_prep AS ra
+    WHERE ra.method_name = 'on_lockup_deployed'
+),
+first_registration_per_voter AS (
+    SELECT DISTINCT ON (r.registered_voter_id)
+        r.*
+    FROM registration_callbacks_by_receipt AS r
+    WHERE r.registered_voter_id IS NOT NULL
+    ORDER BY r.registered_voter_id, r.block_timestamp ASC, r.receipt_id ASC
+),
+storage_deposit_events AS (
+    SELECT
+        ra.block_timestamp,
+        ra.receipt_id,
+        COALESCE(
+            CASE
+                WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+                THEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+                ELSE NULL
+            END,
+            CASE
+                WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+                THEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'account_id'
+                ELSE NULL
+            END
+        ) AS registered_voter_id,
+        CASE
+            WHEN safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+            THEN (safe_json_parse(REPLACE(ra.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+            ELSE NULL
+        END AS voting_power_from_vote_registration
+    FROM receipt_actions_prep AS ra
+    WHERE ra.method_name = 'storage_deposit'
+),
+first_storage_deposit_per_voter AS (
+    SELECT DISTINCT ON (sd.registered_voter_id)
+        sd.registered_voter_id,
+        sd.voting_power_from_vote_registration
+    FROM storage_deposit_events AS sd
+    WHERE sd.voting_power_from_vote_registration IS NOT NULL
+    ORDER BY sd.registered_voter_id, sd.block_timestamp ASC, sd.receipt_id ASC
+),
+voting_power_from_locks_unlocks AS (
+    SELECT DISTINCT ON (vplu_prep.registered_voter_id)
+        vplu_prep.block_timestamp,
+        vplu_prep.receipt_id,
+        vplu_prep.registered_voter_id,
+        vplu_prep.voting_power_from_locks_unlocks,
+        vplu_prep.lockup_update_at_ns
+    FROM (
+        SELECT
+            rap.block_timestamp,
+            rap.receipt_id,
+            CASE
+                WHEN safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+                THEN safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'account_id'
+                ELSE NULL
+            END AS registered_voter_id,
+            CASE
+                WHEN safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+                THEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC
+                ELSE NULL
+            END AS voting_power_from_locks_unlocks,
+            CASE
+                WHEN safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+                THEN (safe_json_parse(REPLACE(rap.action_logs[1], 'EVENT_JSON:', ''))->'data'->0->>'timestamp')::NUMERIC
+                ELSE NULL
+            END AS lockup_update_at_ns
+        FROM receipt_actions_prep AS rap
+        WHERE rap.method_name = 'on_lockup_update'
+    ) AS vplu_prep
+    ORDER BY vplu_prep.registered_voter_id, vplu_prep.block_timestamp DESC, vplu_prep.receipt_id DESC
+),
+registered_voters_prep AS (
+    SELECT
+        fr.id,
+        fr.receipt_id,
+        fr.receiver_id,
+        fr.predecessor_id,
+        fr.method_name,
+        fr.block_timestamp,
+        fr.block_height,
+        fr.block_hash,
+        fr.registered_at_ns,
+        fr.registered_voter_id,
+        sd.voting_power_from_vote_registration AS voting_power_from_vote_registrations
+    FROM first_registration_per_voter AS fr
+    INNER JOIN first_storage_deposit_per_voter AS sd
+        ON fr.registered_voter_id = sd.registered_voter_id
+),
+ten_most_recently_approved_proposals AS (
+    SELECT proposal_id
+    FROM {SCHEMA_NAME}.approved_proposals
+    ORDER BY proposal_approved_at DESC
+    LIMIT 10
+),
+registered_voter_proposal_voting_history AS (
+    SELECT
+        rv.registered_voter_id,
+        pvh.proposal_id,
+        CASE WHEN t.proposal_id IS NULL THEN 0 ELSE 1 END AS is_proposal_from_ten_most_recently_approved
+    FROM registered_voters_prep AS rv
+    INNER JOIN {SCHEMA_NAME}.proposal_voting_history AS pvh
+        ON rv.registered_voter_id = pvh.voter_id
+    LEFT JOIN ten_most_recently_approved_proposals AS t
+        ON pvh.proposal_id = t.proposal_id
+),
+proposal_participation AS (
+    SELECT
+        registered_voter_id,
+        SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC AS num_recently_approved_proposals_voted_on,
+        SUM(is_proposal_from_ten_most_recently_approved)::NUMERIC / 10 AS proposal_participation_rate
+    FROM registered_voter_proposal_voting_history
+    GROUP BY 1
+),
+latest_delegate_all_events AS (
+    SELECT DISTINCT ON (de.delegator_id)
+        de.delegator_id,
+        de.delegatee_id
+    FROM {SCHEMA_NAME}.delegation_events AS de
+    WHERE
+        de.is_latest_delegator_event = TRUE
+        AND de.delegate_method = 'delegate_all'
+        AND de.delegate_event = 'ft_mint'
+    ORDER BY de.delegator_id, de.block_timestamp DESC, de.receipt_id DESC
+),
+table_joins AS (
+    SELECT
+        rv.*,
+        CASE WHEN vplu.registered_voter_id IS NULL THEN FALSE ELSE TRUE END AS has_locked_unlocked_near,
+        CASE WHEN de.delegator_id IS NULL THEN FALSE ELSE TRUE END AS is_actively_delegating,
+        de.delegatee_id,
+        pp.proposal_participation_rate,
+        gc.growth_rate_numerator_ns,
+        gc.growth_rate_denominator_ns,
+        (EXTRACT(EPOCH FROM NOW()) * 1e9)::NUMERIC AS now_ns,
+        vplu.lockup_update_at_ns AS latest_lockup_update_at_ns,
+        COALESCE(vplu.voting_power_from_locks_unlocks, 0) AS voting_power_from_locks_unlocks,
+        COALESCE(rv.voting_power_from_vote_registrations, 0) AS voting_power_from_vote_registration,
+        COALESCE(vplu.voting_power_from_locks_unlocks, 0) + COALESCE(rv.voting_power_from_vote_registrations, 0) AS principal_balance
+    FROM registered_voters_prep AS rv
+    LEFT JOIN venear_contract_growth_config AS gc
+        ON rv.receiver_id = gc.hos_contract_address
+    LEFT JOIN voting_power_from_locks_unlocks AS vplu
+        ON rv.registered_voter_id = vplu.registered_voter_id
+    LEFT JOIN proposal_participation AS pp
+        ON rv.registered_voter_id = pp.registered_voter_id
+    LEFT JOIN latest_delegate_all_events AS de
+        ON rv.registered_voter_id = de.delegator_id
+),
+voting_power_from_rewards AS (
+    SELECT
+        tj.*,
+        CASE
+            WHEN has_locked_unlocked_near = TRUE THEN
+                (FLOOR(principal_balance / 1e21) * 1e21)
+                * (growth_rate_numerator_ns / growth_rate_denominator_ns)
+                * ((FLOOR(now_ns / 1e9) * 1e9) - (FLOOR(latest_lockup_update_at_ns / 1e9) * 1e9))
+            ELSE
+                (FLOOR(principal_balance / 1e21) * 1e21)
+                * (growth_rate_numerator_ns / growth_rate_denominator_ns)
+                * ((FLOOR(now_ns / 1e9) * 1e9) - (FLOOR(registered_at_ns / 1e9) * 1e9))
+        END AS extra_venear_on_principal
+    FROM table_joins AS tj
+),
+delegated_voting_power AS (
+    SELECT
+        delegatee_id,
+        SUM(principal_balance) AS delegated_balance,
+        SUM(extra_venear_on_principal) AS delegated_extra_venear
+    FROM voting_power_from_rewards
+    WHERE delegatee_id IS NOT NULL
+    GROUP BY 1
 )
 -------------
 --FINAL CTE--
