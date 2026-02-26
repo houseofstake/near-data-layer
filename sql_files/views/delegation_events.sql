@@ -72,11 +72,13 @@ SELECT
  		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
  		ELSE NULL 
  		END AS owner_id
-	, CASE 
- 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
- 		ELSE NULL 
- 		END AS near_amount
+	, (
+ 		SELECT (safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		FROM UNNEST(ra.logs) AS t(l)
+ 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_burn'
+ 		LIMIT 1
+ 	  ) AS near_amount
 		
 	--Block Data 
 	, ra.block_height
