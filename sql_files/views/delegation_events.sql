@@ -42,11 +42,13 @@ WITH receipt_actions_prep AS (
 )
 SELECT
 	MD5(CONCAT(ra.receipt_id, '_',  	
- 		CASE 
- 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		    ELSE NULL 
- 		  END)) AS id 
+ 		(
+ 		SELECT safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		FROM UNNEST(ra.logs) AS t(l)
+ 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_mint'
+ 		LIMIT 1
+ 	  ))) AS id 
  	, ra.receipt_id
  	, DATE(ra.block_timestamp) AS event_date
  	, ra.block_timestamp AS event_timestamp
