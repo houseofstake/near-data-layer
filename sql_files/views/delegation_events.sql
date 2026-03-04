@@ -81,13 +81,28 @@ SELECT
  		LIMIT 1
  	  ) AS owner_id
 
-	, (
+	, COALESCE(
+ 		(
  		SELECT (safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
  		FROM UNNEST(ra.logs) AS t(l)
  		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
  		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_burn'
  		LIMIT 1
- 	  ) AS near_amount
+ 	  ),
+	  (
+ 		SELECT (safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		FROM UNNEST(ra.logs) AS t(l)
+ 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_mint'
+		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'owner_id' = 
+		      CASE 
+ 		        WHEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'error' IS NULL
+ 		        THEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'receiver_id'
+ 		        ELSE NULL 
+ 		      END
+ 		LIMIT 1
+ 	  )
+	) AS near_amount
 		
 	--Block Data 
 	, ra.block_height
