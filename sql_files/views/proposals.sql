@@ -140,7 +140,7 @@ WITH receipt_actions_prep AS (
  		    END AS approval_threshold_bps 
  		, CASE 
  			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
- 			THEN (safe_json_parse(ra.results_json::TEXT)->'snapshot_and_state'->>'has_actions')::BOOLEAN
+ 			THEN CASE WHEN safe_json_parse(ra.results_json::TEXT)->'actions' IS NOT NULL THEN TRUE ELSE FALSE END
  			ELSE NULL
  		    END AS has_actions 
  	FROM receipt_actions_prep AS ra
