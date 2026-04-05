@@ -32,7 +32,7 @@ WITH receipt_actions_prep AS (
 		ON ra.receipt_id = eo.receipt_id
 	WHERE
 		ra.action_kind = 'FunctionCall'
-		AND ra.method_name IN ('on_lockup_deployed', 'lock_near', 'on_lockup_update', 'delegate_all', 'undelegate', 'begin_unlock_near', 'lock_pending_near', 'withdraw_from_staking_pool', 'withdraw_all_from_staking_pool', 'unstake', 'unstake_all')
+		AND ra.method_name IN ('on_lockup_deployed', 'lock_near', 'ft_on_transfer', 'on_lockup_update', 'delegate_all', 'undelegate', 'begin_unlock_near', 'lock_pending_near', 'withdraw_from_staking_pool', 'withdraw_all_from_staking_pool', 'unstake', 'unstake_all')
 )
 --------------------
 --Account Creation--
@@ -103,6 +103,47 @@ WITH receipt_actions_prep AS (
   	FROM receipt_actions_prep AS ra
   	WHERE
     	ra.method_name = 'lock_near'
+		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
+			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
+ 			)
+)
+-----------
+--Lock LST-
+-----------
+, lock_lst AS (
+  	SELECT
+  		ra.receipt_id AS id 
+  		, ra.receipt_id
+  		, ra.block_timestamp AS event_timestamp
+  		, COALESCE(CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'event'
+ 		    ELSE NULL 
+ 		  END, 'lockup_lock_lst') AS event_type
+  		, ra.method_name 
+  		, ra.event_status
+    	, CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'sender_id'
+ 		    ELSE ra.signer_account_id 
+ 		  END AS account_id
+    	, SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) AS hos_contract_address 
+ 	    , CASE 
+ 		    WHEN safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(CONVERT_FROM(ra.args_decoded, 'UTF8'))->>'amount')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS near_amount 
+  		, CASE 
+ 		    WHEN safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN (safe_json_parse(REPLACE(ra.logs[1], 'EVENT_JSON:', ''))->'data'->0->>'locked_near_balance')::NUMERIC
+ 		    ELSE NULL 
+ 		  END AS locked_near_balance 
+    	, ra.block_height
+    	, ra.block_hash
+  	FROM receipt_actions_prep AS ra
+  	WHERE
+    	ra.method_name = 'ft_on_transfer'
 		AND SUBSTRING(ra.receiver_id FROM POSITION('.' IN ra.receiver_id) + 1) IN (   
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}'
@@ -352,6 +393,8 @@ WITH receipt_actions_prep AS (
  	SELECT * FROM on_lockup_deployed
  		UNION ALL 
  	SELECT * FROM lock_near
+        UNION ALL
+    SELECT * FROM lock_lst
  		UNION ALL 
  	SELECT * FROM on_lockup_update
  		UNION ALL 

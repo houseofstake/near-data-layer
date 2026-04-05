@@ -23,7 +23,7 @@ WITH receipt_actions_prep AS (
  		AND eo.status IN ('SuccessReceiptId', 'SuccessValue')
  	WHERE
  		ra.action_kind = 'FunctionCall'
-		AND ra.method_name IN ('create_proposal', 'approve_proposal', 'on_get_snapshot','reject_proposal')
+		AND ra.method_name IN ('create_proposal', 'approve_proposal', 'on_get_snapshot', 'reject_proposal', 'execute_proposal')
 		AND ra.receiver_id IN (     --House of Stake contracts
 			'{VENEAR_CONTRACT_PREFIX}.{HOS_CONTRACT}'   --veNEAR contract
 			, '{VOTING_CONTRACT_PREFIX}.{HOS_CONTRACT}' --Voting contract
@@ -110,6 +110,11 @@ WITH receipt_actions_prep AS (
  		    END AS voting_duration_ns 
  		, CASE 
  			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->>'timelock_duration_ns')::NUMERIC
+ 			ELSE NULL
+ 		    END AS timelock_duration_ns 
+ 		, CASE 
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
  			THEN (safe_json_parse(ra.results_json::TEXT)->>'voting_start_time_ns')::NUMERIC
  			ELSE NULL
  		    END AS voting_start_time_ns 
@@ -118,6 +123,26 @@ WITH receipt_actions_prep AS (
  			THEN (safe_json_parse(ra.results_json::TEXT)->>'creation_time_ns')::NUMERIC
  			ELSE NULL
  		    END AS creation_time_ns 
+ 		, CASE 
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->>'quorum_threshold_bps')::NUMERIC
+ 			ELSE NULL
+ 		    END AS quorum_threshold_bps 
+ 		, CASE 
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->>'quorum_floor')::NUMERIC
+ 			ELSE NULL
+ 		    END AS quorum_floor 
+ 		, CASE 
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->>'approval_threshold_bps')::NUMERIC
+ 			ELSE NULL
+ 		    END AS approval_threshold_bps 
+ 		, CASE 
+ 			WHEN safe_json_parse(ra.results_json::TEXT)->>'error' IS NULL
+ 			THEN (safe_json_parse(ra.results_json::TEXT)->'snapshot_and_state'->>'has_actions')::BOOLEAN
+ 			ELSE NULL
+ 		    END AS has_actions 
  	FROM receipt_actions_prep AS ra
  	INNER JOIN approve_proposal AS ap 
  		ON ra.receipt_id = ap.snapshot_receipt_id
@@ -143,6 +168,21 @@ WITH receipt_actions_prep AS (
  	FROM receipt_actions_prep AS ra
  	WHERE
  		ra.method_name = 'reject_proposal'
+ )
+ , execute_proposal AS (
+ 	SELECT
+ 		ra.receipt_id AS id
+ 		, ra.receipt_id AS receipt_id
+ 		, DATE(ra.block_timestamp) AS proposal_executed_date
+ 		, ra.block_timestamp AS proposal_executed_at
+ 		, CASE 
+ 		    WHEN safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'error' IS NULL
+ 		    THEN (safe_json_parse(convert_from(ra.args_decoded, 'UTF8'))->>'proposal_id')::NUMERIC
+ 		    ELSE NULL 
+ 		    END AS proposal_id
+ 	FROM receipt_actions_prep AS ra
+ 	WHERE
+ 		ra.method_name = 'execute_proposal'
  )
  , proposal_votes AS ( 
  	SELECT 
@@ -182,6 +222,11 @@ WITH receipt_actions_prep AS (
  		WHEN pv.num_distinct_voters IS NULL 
  		THEN FALSE ELSE TRUE 
  		END AS has_votes 
+ 	, CASE 
+ 		WHEN ex.proposal_id IS NULL 
+ 		THEN FALSE ELSE TRUE 
+ 		END AS is_executed 
+    , ex.proposal_executed_at AS executed_at
  	
  	--Creation Details
  	, COALESCE(TO_TIMESTAMP(aps.creation_time_ns / 1e9) AT TIME ZONE 'UTC', cp.proposal_created_at) AS created_at 
@@ -198,7 +243,11 @@ WITH receipt_actions_prep AS (
 
 	--Additional Approval Metadata (Sourced from associated on_get_snapshot method)
  	, aps.voting_duration_ns 
+    , aps.timelock_duration_ns
  	, aps.total_venear_amount AS total_venear_at_approval
+    , aps.quorum_threshold_bps
+    , aps.quorum_floor
+    , aps.approval_threshold_bps
  	
  	--Vote Details 
  	, pv.listagg_distinct_voters
@@ -208,6 +257,34 @@ WITH receipt_actions_prep AS (
     , COALESCE(pv.for_voting_power, 0) AS for_voting_power
     , COALESCE(pv.against_voting_power, 0) AS against_voting_power
  	, COALESCE(pv.abstain_voting_power, 0) AS abstain_voting_power
+
+    -- Dynamic Status Calculation
+    , CASE 
+        WHEN ap.proposal_id IS NULL THEN 'Created'
+        WHEN rp.proposal_id IS NOT NULL THEN 'Rejected'
+        WHEN ex.proposal_id IS NOT NULL THEN 'InProgress' 
+        WHEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') < (TO_TIMESTAMP(aps.voting_start_time_ns / 1e9) AT TIME ZONE 'UTC' + (aps.voting_duration_ns / 1e9) * INTERVAL '1 second') THEN 'Voting'
+        ELSE 
+            -- Calculate Final Status (Succeeded or Defeated)
+            CASE 
+                -- Quorum Met
+                WHEN COALESCE((pv.for_voting_power + pv.against_voting_power + pv.abstain_voting_power), 0) >= GREATEST(
+                       (aps.total_venear_amount * COALESCE(aps.quorum_threshold_bps, 500) / 10000), 
+                       COALESCE(aps.quorum_floor, 0)
+                     )
+                -- Approval Met
+                AND (pv.for_voting_power + pv.against_voting_power) > 0 
+                AND (pv.for_voting_power * 10000) >= (COALESCE(aps.approval_threshold_bps, 5000) * (pv.for_voting_power + pv.against_voting_power))
+                THEN 
+                    -- If Succeeded, check timelock and executability
+                    CASE 
+                        WHEN (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') < (TO_TIMESTAMP(aps.voting_start_time_ns / 1e9) AT TIME ZONE 'UTC' + ((aps.voting_duration_ns + COALESCE(aps.timelock_duration_ns, 0)) / 1e9) * INTERVAL '1 second') THEN 'Timelock'
+                        WHEN COALESCE(aps.has_actions, FALSE) THEN 'Executable'
+                        ELSE 'Succeeded'
+                    END
+                ELSE 'Defeated'
+            END
+      END AS status
  	
  	--Block Data 
 	, cp.block_height 
@@ -221,6 +298,8 @@ WITH receipt_actions_prep AS (
     AND ap.receipt_id = aps.approve_proposal_receipt_id 
  LEFT JOIN reject_proposal AS rp 
  	ON cp.proposal_id = rp.proposal_id 
+ LEFT JOIN execute_proposal AS ex 
+ 	ON cp.proposal_id = ex.proposal_id 
  LEFT JOIN proposal_votes AS pv 
  	ON ap.proposal_id = pv.proposal_id 
  ORDER BY cp.proposal_created_at ASC
