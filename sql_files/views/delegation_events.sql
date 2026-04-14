@@ -65,6 +65,7 @@ SELECT
  		FROM UNNEST(ra.logs) AS t(l)
  		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
  		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' IN ('ft_mint', 'ft_burn')
+ 		ORDER BY CASE WHEN safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_mint' THEN 1 ELSE 2 END ASC
  		LIMIT 1
  	  ) AS delegate_event 
 
