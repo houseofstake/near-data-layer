@@ -42,13 +42,11 @@ WITH receipt_actions_prep AS (
 )
 SELECT
 	MD5(CONCAT(ra.receipt_id, '_',  	
- 		(
- 		SELECT safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		FROM UNNEST(ra.logs) AS t(l)
- 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_mint'
- 		LIMIT 1
- 	  ))) AS id 
+ 		CASE 
+ 		    WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		    THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		    ELSE NULL 
+ 		  END)) AS id 
  	, ra.receipt_id
  	, DATE(ra.block_timestamp) AS event_date
  	, ra.block_timestamp AS event_timestamp
@@ -60,54 +58,32 @@ SELECT
  		ELSE NULL 
  		END AS delegatee_id --null for the undelegate event 
  	, ra.method_name AS delegate_method
-	, (
- 		SELECT safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event'
- 		FROM UNNEST(ra.logs) AS t(l)
- 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' IN ('ft_mint', 'ft_burn')
- 		LIMIT 1
- 	  ) AS delegate_event 
-
+	, CASE 
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'event'
+ 		ELSE NULL 
+ 		END AS delegate_event 
 	, CASE 
  	 	WHEN row_num = 1 
  	 	THEN TRUE 
  	 	ELSE FALSE END AS is_latest_delegator_event 
-
-	, (
- 		SELECT safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
- 		FROM UNNEST(ra.logs) AS t(l)
- 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_mint'
- 		LIMIT 1
- 	  ) AS owner_id
-
-	, COALESCE(
- 		(
- 		SELECT (safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
- 		FROM UNNEST(ra.logs) AS t(l)
- 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_burn'
- 		LIMIT 1
- 	  ),
-	  (
- 		SELECT (safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
- 		FROM UNNEST(ra.logs) AS t(l)
- 		WHERE safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'error' IS NULL
- 		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->>'event' = 'ft_mint'
-		  AND safe_json_parse(REPLACE(l, 'EVENT_JSON:', ''))->'data'->0->>'owner_id' = 
-		      CASE 
- 		        WHEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'error' IS NULL
- 		        THEN safe_json_parse(CONVERT_FROM(ra.args, 'UTF8'))->>'receiver_id'
- 		        ELSE NULL 
- 		      END
- 		LIMIT 1
- 	  )
-	) AS near_amount
+	, CASE 
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'owner_id'
+ 		ELSE NULL 
+ 		END AS owner_id
+	, CASE 
+ 		WHEN safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->>'error' IS NULL
+ 		THEN (safe_json_parse(REPLACE(unnested_logs, 'EVENT_JSON:', ''))->'data'->0->>'amount')::NUMERIC
+ 		ELSE NULL 
+ 		END AS near_amount
 		
 	--Block Data 
 	, ra.block_height
  	, ra.block_hash
 	, ra.block_timestamp
  FROM delegate_undelegate_events AS ra
+ LEFT JOIN LATERAL UNNEST(ra.logs) AS unnested_logs 
+ 	ON TRUE
  ORDER BY ra.block_timestamp DESC
 ;
