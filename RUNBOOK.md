@@ -397,9 +397,9 @@ git push origin main
 # Monitor deployment in GitHub Actions
 # Navigate to: GitHub repo → Actions → Latest workflow run
 
-gcloud compute ssh indexer-vm \
-  --zone=us-west1-a \
-  --project=hos-gov-dev
+gcloud compute ssh <VM_NAME> \
+  --zone=<ZONE> \
+  --project=<PROJECT_ID>
 
-sudo docker logs -f $(sudo docker ps -q --filter ancestor=us-west1-docker.pkg.dev/hos-gov-dev/indexer/near-sink-service)
+sudo docker logs -f $(sudo docker ps -q --filter ancestor=<DOCKER_IMAGE>)
 ``` 

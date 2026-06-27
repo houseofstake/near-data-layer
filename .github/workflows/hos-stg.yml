@@ -3,17 +3,10 @@ name: Deploy HOS Staging
 on:
   workflow_dispatch: # This allows the workflow to be manually triggered from the GitHub UI
 
-env:
-  PROJECT_NUMBER: "216712737016"
-  SERVICE_ACCOUNT_EMAIL: "github-actions@hos-gov-stg.iam.gserviceaccount.com"
-  PROJECT_ID: "hos-gov-stg"
-  REGION: "us-west1"
-  DOCKER_IMAGE: "us-west1-docker.pkg.dev/hos-gov-stg/indexer/near-sink-service"
-
 jobs:
   deploy-staging:
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: hos-staging
 
     permissions:
@@ -27,30 +20,30 @@ jobs:
       - name: Authenticate to Google Cloud using OIDC
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/${{env.PROJECT_NUMBER}}/locations/global/workloadIdentityPools/github-identity-pool/providers/github
-          service_account: ${{env.SERVICE_ACCOUNT_EMAIL}}
+          workload_identity_provider: projects/${{vars.GCP_PROJECT_NUMBER}}/locations/global/workloadIdentityPools/github-identity-pool/providers/github
+          service_account: ${{vars.GCP_SA_EMAIL}}
 
       - name: Configure gcloud
-        run: gcloud config set project ${{env.PROJECT_ID}}
+        run: gcloud config set project ${{vars.GCP_PROJECT_ID}}
 
       - name: Login to Artifact Registry
-        run: gcloud auth configure-docker ${{env.REGION}}-docker.pkg.dev
+        run: gcloud auth configure-docker ${{vars.GCP_REGION}}-docker.pkg.dev
 
       - name: Build Docker image
-        run: docker build -t ${{env.DOCKER_IMAGE}} .
+        run: docker build -t ${{vars.GCP_DOCKER_IMAGE}} .
 
       - name: Push Docker image to Artifact Registry
-        run: docker push ${{env.DOCKER_IMAGE}}
+        run: docker push ${{vars.GCP_DOCKER_IMAGE}}
 
       - name: Docker cleanup on VM
         run: |
-          gcloud compute ssh indexer-vm \
-            --zone=${{env.REGION}}-a \
-            --project=${{env.PROJECT_ID}} \
+          gcloud compute ssh ${{vars.GCP_VM_NAME}} \
+            --zone=${{vars.GCP_REGION}}-a \
+            --project=${{vars.GCP_PROJECT_ID}} \
             --command="sudo docker system prune --all --force --volumes"
 
       - name: Restart Compute Engine VM
         run: |
-          gcloud compute instances reset indexer-vm \
-            --zone=${{env.REGION}}-a \
-            --project=${{env.PROJECT_ID}}
+          gcloud compute instances reset ${{vars.GCP_VM_NAME}} \
+            --zone=${{vars.GCP_REGION}}-a \
+            --project=${{vars.GCP_PROJECT_ID}}
